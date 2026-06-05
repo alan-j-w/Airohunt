@@ -1,0 +1,41 @@
+{
+    "jobs_collected": 112,
+    "jobs_rejected": 0,
+    "jobs_displayed": 112,
+    "duplicates_removed": 0,
+    "scams_blocked": 0,
+    "training_institutes_blocked": 0,
+    "experience_rejected": 0,
+    "rejection_categories": {
+        "Scam Detected": 0,
+        "Company Blacklist": 0,
+        "Training Institute": 0,
+        "Experience Too High": 0,
+        "Missing Company Name": 0,
+        "Missing Apply URL": 0,
+        "Low Skill Match": 0,
+        "Low Validation Score": 0
+    },
+    "top_failure_reasons": [
+        {
+            "reason": "Scam Detected",
+            "count": 0
+        },
+        {
+            "reason": "Company Blacklist",
+            "count": 0
+        },
+        {
+            "reason": "Training Institute",
+            "count": 0
+        },
+        {
+            "reason": "Experience Too High",
+            "count": 0
+        },
+        {
+            "reason": "Missing Company Name",
+            "count": 0
+        }
+    ]
+}

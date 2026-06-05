@@ -1,0 +1,79 @@
+{
+    "applications": {
+        "058d0662-e040-532f-812d-018e78820bc8": {
+            "job_id": "058d0662-e040-532f-812d-018e78820bc8",
+            "company": "Riafy Technologies",
+            "title": "Junior React Developer",
+            "status": "Prepared",
+            "source": "AI Analyzed (Openai)",
+            "resume_version": "react",
+            "last_updated": "2026-06-05T00:32:44.711567",
+            "platform": "Generic Careers Page",
+            "support": "40%"
+        },
+        "c457af40-f3e3-5e2c-a49a-dc0a745c21a5": {
+            "job_id": "c457af40-f3e3-5e2c-a49a-dc0a745c21a5",
+            "company": "Accubits",
+            "title": "Junior MERN Stack Developer",
+            "status": "Prepared",
+            "source": "AI Analyzed (Groq)",
+            "resume_version": "fullstack",
+            "last_updated": "2026-06-05T13:56:10.427950",
+            "platform": "Greenhouse",
+            "support": "95%"
+        },
+        "44bd9139-a528-58e4-bf1f-b499eca76b98": {
+            "job_id": "44bd9139-a528-58e4-bf1f-b499eca76b98",
+            "company": "Tech Mahindra",
+            "title": "Junior MERN Stack Developer",
+            "status": "Prepared",
+            "source": "Local Heuristics",
+            "resume_version": "fullstack",
+            "last_updated": "2026-06-05T13:59:52.649171",
+            "platform": "Generic Careers Page",
+            "support": "40%"
+        }
+    },
+    "audit_logs": [
+        {
+            "timestamp": "2026-06-05T00:23:33.406060",
+            "job_id": "058d0662-e040-532f-812d-018e78820bc8",
+            "company": "Riafy Technologies",
+            "title": "Junior React Developer",
+            "action": "Application prepared via Assisted Apply using react resume version",
+            "mode": "Assisted Apply"
+        },
+        {
+            "timestamp": "2026-06-05T00:32:44.711567",
+            "job_id": "058d0662-e040-532f-812d-018e78820bc8",
+            "company": "Riafy Technologies",
+            "title": "Junior React Developer",
+            "action": "Application prepared via Assisted Apply using react resume version",
+            "mode": "Assisted Apply"
+        },
+        {
+            "timestamp": "2026-06-05T13:56:10.429394",
+            "job_id": "c457af40-f3e3-5e2c-a49a-dc0a745c21a5",
+            "company": "Accubits",
+            "title": "Junior MERN Stack Developer",
+            "action": "Application prepared via Assisted Apply using fullstack resume version",
+            "mode": "Assisted Apply"
+        },
+        {
+            "timestamp": "2026-06-05T13:59:46.540972",
+            "job_id": "44bd9139-a528-58e4-bf1f-b499eca76b98",
+            "company": "Tech Mahindra",
+            "title": "Junior MERN Stack Developer",
+            "action": "Application prepared via Assisted Apply using fullstack resume version",
+            "mode": "Assisted Apply"
+        },
+        {
+            "timestamp": "2026-06-05T13:59:52.649171",
+            "job_id": "44bd9139-a528-58e4-bf1f-b499eca76b98",
+            "company": "Tech Mahindra",
+            "title": "Junior MERN Stack Developer",
+            "action": "Application prepared via Assisted Apply using fullstack resume version",
+            "mode": "Assisted Apply"
+        }
+    ]
+}

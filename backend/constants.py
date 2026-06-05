@@ -1,0 +1,5 @@
+# Core scoring weights for Airohunt composite ranking
+TECH_MATCH_WEIGHT = 0.30
+PREFERENCE_MATCH_WEIGHT = 0.30
+TRUST_SCORE_WEIGHT = 0.20
+OPPORTUNITY_SCORE_WEIGHT = 0.20

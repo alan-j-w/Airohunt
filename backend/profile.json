@@ -1,0 +1,31 @@
+{
+    "name": "Alan Joy Wilson",
+    "email": "alanjoywilson@gmail.com",
+    "phone": "8714816929",
+    "location": "Remote",
+    "target_roles": [
+        "MERN",
+        "REACT",
+        "WEB DEVELOPER"
+    ],
+    "skills": [
+        "MongoDB",
+        "Django",
+        "Tailwind CSS",
+        "Node.js",
+        "JavaScript",
+        "Git",
+        "SQL",
+        "Machine Learning",
+        "HTML",
+        "Python",
+        "React",
+        "CSS"
+    ],
+    "salary_expectation": 0,
+    "base_resume": "Alan Joy Wilson\nFull Stack Developer\n+91-8714816929|alanjoywilson@gmail.com LinkedIn|GitHub\nProfessional Summary\nFull Stack Developer with practical experience building web applications using React.js, Node.js, Django, and MongoDB.\nComfortable working on both frontend and backend development, REST APIs, authentication systems, and responsive user\ninterfaces. Interested in building reliable and user-friendly applications while continuing to improve through hands-on\ndevelopment and team collaboration.\nTechnical Skills\n\u2022Programming Languages:Python, JavaScript, SQL\n\u2022Frontend:React.js, Next.js, HTML, CSS, Tailwind CSS\n\u2022Backend:Node.js, Express.js, Django\n\u2022Databases:MongoDB, MySQL, SQLite\n\u2022Tools & Platforms:Git, GitHub, VS Code, MySQL Workbench\n\u2022Core Concepts:REST APIs, JWT Authentication, CRUD Operations, API Integration, RBAC, Responsive Design\nExperience\nSoftware Development Intern \u2014 TrackPi Private Limited, Kochi2025 \u2013 Present\n\u2022Contributed to the development of a full-stack job portal application using React.js, Node.js, Express.js, and MongoDB.\n\u2022Worked on authentication systems, profile management workflows, and job-related features.\n\u2022Assisted with REST API integration, debugging, testing, and backend connectivity.\n\u2022Collaborated with developers using Git-based version control during feature development.\nProjects\nJob Portal \u2013 Full Stack Web Application2026\n\u2022Collaborated with a development team to build a job portal platform using React.js, Vite, Tailwind CSS, Node.js,\nExpress.js, and MongoDB.\n\u2022Implemented JWT authentication, Google OAuth login, and application tracking features.\n\u2022Developed admin dashboard functionalities and integrated REST APIs.\n\u2022Created responsive frontend interfaces using React Router for navigation.\nNexcart \u2013 Multi-Vendor eCommerce Platform2026\nLive:https://nexcart-ecommerce-platform.vercel.app/\n\u2022Developed a multi-vendor eCommerce platform using Next.js, Node.js, Express.js, and MongoDB.\n\u2022Implemented vendor dashboards, authentication systems, Google OAuth, and Razorpay integration.\n\u2022Integrated Cloudinary storage, REST APIs, RBAC, and responsive UI components.\n\u2022Deployed the platform using Vercel and Render.\nVulnBox \u2013 Cybersecurity Learning Platform2025\nLive:https://vulnbox.onrender.com\n\u2022Developed a cybersecurity learning platform using Python, Django, JavaScript, and Tailwind CSS.\n\u2022Implemented labs demonstrating SQL Injection, CSRF, authentication bypass, and NoSQL Injection concepts.\n\u2022Built authentication workflows, challenge progression systems, and responsive frontend interfaces.\n\u2022Designed the platform to support secure coding awareness and cybersecurity learning.\nEducation\nMaster of Computer Applications (MCA)2024 \u2013 2026\nMar Athanasius College for Advanced Studies, Tiruvalla\nBachelor of Computer Applications (BCA)2021 \u2013 2024\nFatima Mata National College (Autonomous), Kollam\nCertifications\n\u2022Coursera\u2013 Software QA & Test Automation Engineering.\n\u2022Faith InfoTech Academy\u2013 Software Development Training focused on Django, MySQL, Angular, and Clinic\nManagement System development.\n\u2022Srishti Innovative Technopark\u2013 Workshops on IoT, Robotics, Artificial Intelligence, and Machine Learning.",
+    "experience_level": "Fresher",
+    "preferred_work_mode": "Remote",
+    "region": "Kerala",
+    "ai_instructions": "DONT NEED TO LIST DSA RELATED JOBS LIKE SOFTWARE ENGEENINRING FOCUS ON WEB DEVELOPMENT , PRIORITY ONE IS FOR MERN STACK JOB\n"
+}

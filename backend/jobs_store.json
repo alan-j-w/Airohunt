@@ -1,0 +1,437 @@
+[
+    {
+        "id": "f89bc240-2429-5d52-becf-1bd403f68ca0",
+        "title": "Associate Software Engineer",
+        "company": "SkillBuild Certification Corp",
+        "location": "Chicago, IL",
+        "salary": "$60,000 - $70,000",
+        "description": "Looking for entry-level developers. Candidates must complete our proprietary software engineering certification exam first. The exam voucher costs $450. Candidates who pass the exam with >80% score are guaranteed an interview.",
+        "skills_required": [
+            "JavaScript",
+            "HTML",
+            "Git"
+        ],
+        "url": "https://careers.skillbuild.example.com/exam-scam",
+        "is_scam": true,
+        "scam_reason": "Predatory Listing: Mentions 'exam voucher' which is a red flag for training-fee/equipment purchasing scams.",
+        "match_score": 100.0,
+        "status": "Applied",
+        "tailored_resume": "# Tailored Resume for Associate Software Engineer at SkillBuild Certification Corp\n[ATS Optimization Level: Local Heuristic Match]\n\n## Professional Summary\nDedicated professional with targeted capabilities in Associate Software Engineer. Equipped with core skills in React, JavaScript, HTML, CSS, Git. Proven competence utilizing industry key skills including:  to deliver high-quality project contributions.\n\n---\n\n## Targeted Core Competencies\n* **Primary Skills**: React, JavaScript, HTML, CSS, Git\n* **Role Alignment Keywords**: \n\n---\n\n## Professional Work History & Experience\nJane Doe\nEmail: jane.doe@example.com\nWeb Developer with 2 years of experience.\n\n---\n*Note: This resume was automatically structured to highlight matching skills for the Associate Software Engineer role at SkillBuild Certification Corp without fabricating credentials.*\n"
+    },
+    {
+        "id": "058d0662-e040-532f-812d-018e78820bc8",
+        "title": "Junior React Developer",
+        "company": "Riafy Technologies",
+        "location": "Kochi, Kerala (Hybrid)",
+        "salary": "\u20b93.6 LPA - \u20b95.0 LPA",
+        "description": "Riafy is a leading product startup building global AI apps. We are looking for a Junior React Developer. Hiring is project-based: we will review your Github repositories and ask you to build a small web widget instead of solving DSA whiteboard algorithms. Strong Javascript/CSS skills are required.",
+        "skills_required": [
+            "React",
+            "JavaScript",
+            "HTML",
+            "CSS",
+            "Git"
+        ],
+        "url": "https://riafy.me/careers",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 87.0,
+        "status": "Prepared",
+        "tailored_resume": "# Tailored Resume for Junior React Developer at Riafy Technologies\n[ATS Optimization Level: Local Heuristic Match]\n\n## Professional Summary\nDedicated professional with targeted capabilities in Junior React Developer. Equipped with core skills in MongoDB, Django, Tailwind CSS, Node.js, JavaScript, Git, SQL, Machine Learning, HTML, Python, React, CSS. Proven competence utilizing industry key skills including: Building, Skills, Css, Javascript, Web, Github to deliver high-quality project contributions.\n\n---\n\n## Targeted Core Competencies\n* **Primary Skills**: MongoDB, Django, Tailwind CSS, Node.js, JavaScript, Git, SQL, Machine Learning, HTML, Python, React, CSS\n* **Role Alignment Keywords**: Building, Skills, Css, Javascript, Web, Github\n\n---\n\n## Professional Work History & Experience\nAlan Joy Wilson\nReact Frontend Developer\nKochi, Kerala | alanjoywilson@gmail.com\n\nProfessional Summary\nHighly motivated Frontend Developer specializing in React.js and modern frontend workflows. Proficient in building responsive user interfaces, handling state management, and integrating secure REST APIs.\n\nTechnical Skills\n- Frontend: React.js, Next.js, HTML5, CSS3, Tailwind CSS, JavaScript (ES6+), TypeScript\n- Tools & Platforms: Git, GitHub, VS Code, Vite, npm\n- Concepts: REST APIs, State Management, Responsive Web Design, Component-Driven Development\n\n---\n*Note: This resume was automatically structured to highlight matching skills for the Junior React Developer role at Riafy Technologies without fabricating credentials.*\n",
+        "scam_risk_score": 10,
+        "tech_match_score": 100.0,
+        "pref_match_score": 70.0,
+        "trust_score": 90.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "Salary disclosed",
+            "High Opportunity"
+        ],
+        "recommendation_cons": [
+            "Title mismatch"
+        ],
+        "ai_recommendation": "[AI Connection Failed: All configured AI providers failed.] Strong recommendation to apply. You match 5 core skills requested and the listing aligns with your target preferences.",
+        "evaluation_mode": "Local Heuristics"
+    },
+    {
+        "id": "c457af40-f3e3-5e2c-a49a-dc0a745c21a5",
+        "title": "Junior MERN Stack Developer",
+        "company": "Accubits",
+        "location": "Remote",
+        "salary": "\u20b94.5 LPA - \u20b96.0 LPA",
+        "description": "We are seeking a highly motivated and detail-oriented Junior MERN Stack Developer to join our team. The ideal candidate will have a strong foundation in MongoDB, Express.js, React, and Node.js. Responsibilities include designing and developing scalable and efficient web applications, collaborating with cross-functional teams, and ensuring high-quality code. Evaluation will be based on project-based assessments and code reviews.",
+        "skills_required": [
+            "MongoDB",
+            "Express.js",
+            "React",
+            "Node.js",
+            "JavaScript",
+            "Git"
+        ],
+        "url": "https://boards.greenhouse.io/accubits/jobs/123456",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 88.0,
+        "status": "Prepared",
+        "tailored_resume": "# Tailored Resume for Junior MERN Stack Developer at Accubits\n[ATS Optimization Level: Local Heuristic Match]\n\n## Professional Summary\nDedicated professional with targeted capabilities in Junior MERN Stack Developer. Equipped with core skills in MongoDB, Django, Tailwind CSS, Node.js, JavaScript, Git, SQL, Machine Learning, HTML, Python, React, CSS. Proven competence utilizing industry key skills including: Developer, Web, Applications, Stack, Express, Mongodb to deliver high-quality project contributions.\n\n---\n\n## Targeted Core Competencies\n* **Primary Skills**: MongoDB, Django, Tailwind CSS, Node.js, JavaScript, Git, SQL, Machine Learning, HTML, Python, React, CSS\n* **Role Alignment Keywords**: Developer, Web, Applications, Stack, Express, Mongodb\n\n---\n\n## Professional Work History & Experience\nAlan Joy Wilson\nFull Stack Web Developer\nKochi, Kerala | alanjoywilson@gmail.com\n\nProfessional Summary\nFull Stack Developer experienced in the MERN stack (MongoDB, Express, React, Node.js). Competent in architecting end-to-end web applications, integrating user authentication, and structuring responsive web apps.\n\nTechnical Skills\n- Frontend: React.js, Next.js, HTML, CSS, Tailwind CSS, JavaScript\n- Backend: Node.js, Express.js, Django\n- Databases: MongoDB, MySQL, SQLite\n- Core Competencies: REST APIs, JWT Authentication, OAuth, CRUD Operations, Version Control\n\n---\n*Note: This resume was automatically structured to highlight matching skills for the Junior MERN Stack Developer role at Accubits without fabricating credentials.*\n",
+        "scam_risk_score": 0,
+        "tech_match_score": 90.0,
+        "pref_match_score": 80.0,
+        "trust_score": 95.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "MERN Stack expertise",
+            "Project-based assessments",
+            "Remote work opportunity"
+        ],
+        "recommendation_cons": [
+            "Salary range not explicitly mentioned in the job description"
+        ],
+        "ai_recommendation": "Based on your skills and preferences, this Junior MERN Stack Developer role at Accubits seems like a great fit. The project-based assessments and remote work opportunity align well with your preferences. However, it's worth noting that the salary range is not explicitly mentioned in the job description, so be sure to clarify this during the interview process.",
+        "evaluation_mode": "AI Analyzed (Groq)",
+        "company_summary": "",
+        "tech_stack": [],
+        "hiring_signals": [],
+        "trust_rating": "B"
+    },
+    {
+        "id": "44bd9139-a528-58e4-bf1f-b499eca76b98",
+        "title": "Junior MERN Stack Developer",
+        "company": "Tech Mahindra",
+        "location": "Remote",
+        "salary": "\u20b94.0 LPA - \u20b95.5 LPA",
+        "description": "We are seeking a highly motivated and detail-oriented Junior MERN Stack Developer to join our team. As a Junior MERN Stack Developer, you will be responsible for designing, developing, and deploying scalable and efficient web applications using MERN stack. You will work closely with our cross-functional team to identify and prioritize features, and collaborate with our QA team to ensure high-quality delivery. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in JavaScript, Node.js, MongoDB, and React, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "JavaScript",
+            "Node.js",
+            "MongoDB",
+            "React",
+            "CSS",
+            "HTML"
+        ],
+        "url": "https://careers.techmahindra.com/jobs/123789",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 93.0,
+        "status": "Prepared",
+        "tailored_resume": "# Tailored Resume for Junior MERN Stack Developer at Tech Mahindra\n[ATS Optimization Level: Local Heuristic Match]\n\n## Professional Summary\nDedicated professional with targeted capabilities in Junior MERN Stack Developer. Equipped with core skills in MongoDB, Django, Tailwind CSS, Node.js, JavaScript, Git, SQL, Machine Learning, HTML, Python, React, CSS. Proven competence utilizing industry key skills including: Developer, Web, Applications, Stack, Mongodb, Node to deliver high-quality project contributions.\n\n---\n\n## Targeted Core Competencies\n* **Primary Skills**: MongoDB, Django, Tailwind CSS, Node.js, JavaScript, Git, SQL, Machine Learning, HTML, Python, React, CSS\n* **Role Alignment Keywords**: Developer, Web, Applications, Stack, Mongodb, Node\n\n---\n\n## Professional Work History & Experience\nAlan Joy Wilson\nFull Stack Web Developer\nKochi, Kerala | alanjoywilson@gmail.com\n\nProfessional Summary\nFull Stack Developer experienced in the MERN stack (MongoDB, Express, React, Node.js). Competent in architecting end-to-end web applications, integrating user authentication, and structuring responsive web apps.\n\nTechnical Skills\n- Frontend: React.js, Next.js, HTML, CSS, Tailwind CSS, JavaScript\n- Backend: Node.js, Express.js, Django\n- Databases: MongoDB, MySQL, SQLite\n- Core Competencies: REST APIs, JWT Authentication, OAuth, CRUD Operations, Version Control\n\n---\n*Note: This resume was automatically structured to highlight matching skills for the Junior MERN Stack Developer role at Tech Mahindra without fabricating credentials.*\n",
+        "scam_risk_score": 10,
+        "tech_match_score": 100.0,
+        "pref_match_score": 90.0,
+        "trust_score": 90.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "MERN Stack",
+            "Salary disclosed",
+            "High Opportunity"
+        ],
+        "recommendation_cons": [],
+        "ai_recommendation": "[AI Connection Failed: All configured AI providers failed.] Strong recommendation to apply. You match 6 core skills requested and the listing aligns with your target preferences.",
+        "evaluation_mode": "Local Heuristics",
+        "company_summary": "We are seeking a highly motivated and detail-oriented Junior MERN Stack Developer to join our team. As a Junior MERN Stack Developer, you will be responsible for designing, developing, and deploying scalable and efficient web applications using MERN stack.",
+        "tech_stack": [
+            "React",
+            "JavaScript",
+            "Node.js",
+            "MongoDB",
+            "HTML",
+            "CSS"
+        ],
+        "hiring_signals": [
+            "Standard Technical Review",
+            "Remote-First Setup",
+            "Early Career Onboarding"
+        ],
+        "trust_rating": "A+"
+    },
+    {
+        "id": "d9ce79f3-70df-54ae-919f-9e9a25c4f057",
+        "title": "Full Stack Developer",
+        "company": "Infosys",
+        "location": "Remote",
+        "salary": "\u20b95.0 LPA - \u20b97.0 LPA",
+        "description": "We are looking for a skilled Full Stack Developer to join our team. As a Full Stack Developer, you will be responsible for designing, developing, and deploying scalable and efficient web applications using MERN stack. You will work closely with our cross-functional team to identify and prioritize features, and collaborate with our QA team to ensure high-quality delivery. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in JavaScript, Node.js, MongoDB, and React, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "JavaScript",
+            "Node.js",
+            "MongoDB",
+            "React",
+            "CSS",
+            "HTML"
+        ],
+        "url": "https://careers.infosys.com/jobs/456789",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 89.5,
+        "status": "Matched",
+        "tailored_resume": "",
+        "scam_risk_score": 0,
+        "tech_match_score": 95.0,
+        "pref_match_score": 90.0,
+        "trust_score": 80.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "MERN stack experience",
+            "Strong foundation in JavaScript, Node.js, MongoDB, and React",
+            "Remote work opportunity"
+        ],
+        "recommendation_cons": [
+            "No information about the company culture or team dynamics"
+        ],
+        "ai_recommendation": "This job appears to be a great fit for you, given your skills and preferences. The company is a well-established global player, and the role involves working on a MERN stack, which aligns with your target roles. However, it's worth noting that there's limited information about the company culture and team dynamics, which might be a concern. Overall, we recommend applying for this position.",
+        "evaluation_mode": "AI Analyzed (Groq)",
+        "company_summary": "Infosys is a global consulting and IT services company that provides business consulting, technology, engineering, and outsourcing services.",
+        "tech_stack": [
+            "MongoDB",
+            "Django",
+            "Tailwind CSS",
+            "Node.js",
+            "JavaScript",
+            "Git",
+            "SQL",
+            "React",
+            "CSS"
+        ],
+        "hiring_signals": [
+            "Project-Based (No DSA)",
+            "Immediate Start"
+        ],
+        "trust_rating": "A"
+    },
+    {
+        "id": "94634dd5-2362-5f1f-80bd-17cda75282d3",
+        "title": "Junior Full Stack Developer",
+        "company": "Zeta Technologies",
+        "location": "Remote",
+        "salary": "\u20b94.5 LPA - \u20b96.0 LPA",
+        "description": "We are seeking a highly motivated and detail-oriented Junior Full Stack Developer to join our team. As a Junior Full Stack Developer, you will be responsible for designing, developing, and deploying scalable and efficient web applications using MERN stack. You will work closely with our cross-functional team to identify and prioritize features, and collaborate with our QA team to ensure high-quality delivery. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in JavaScript, Node.js, MongoDB, and React, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "JavaScript",
+            "Node.js",
+            "MongoDB",
+            "React",
+            "CSS",
+            "HTML"
+        ],
+        "url": "https://boards.greenhouse.io/zetatech/jobs/123456",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 88.0,
+        "status": "Matched",
+        "tailored_resume": "",
+        "scam_risk_score": 0,
+        "tech_match_score": 90.0,
+        "pref_match_score": 80.0,
+        "trust_score": 95.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "MERN Stack",
+            "Web Development",
+            "Remote Work",
+            "Competitive Salary"
+        ],
+        "recommendation_cons": [
+            "No information on growth opportunities or company culture"
+        ],
+        "ai_recommendation": "Based on your skills and preferences, this role seems like a great fit. You'll be working on MERN stack projects, which aligns with your target roles. Additionally, the company offers a competitive salary and remote work flexibility. However, it's worth noting that there's limited information on growth opportunities and company culture, so be sure to research these aspects before applying.",
+        "evaluation_mode": "AI Analyzed (Groq)",
+        "company_summary": "Zeta Technologies is a technology company that specializes in developing scalable and efficient web applications.",
+        "tech_stack": [
+            "MongoDB",
+            "Node.js",
+            "JavaScript",
+            "React"
+        ],
+        "hiring_signals": [
+            "Project-Based (No DSA)",
+            "Immediate Start"
+        ],
+        "trust_rating": "A+"
+    },
+    {
+        "id": "fc0c75c6-b5d9-5df7-b07e-7fd6e6b79074",
+        "title": "Frontend Developer",
+        "company": "Fynd",
+        "location": "Remote",
+        "salary": "$80,000 - $100,000",
+        "description": "We are looking for a skilled Frontend Developer to join our team. As a Frontend Developer, you will be responsible for designing and developing the user interface and user experience of our e-commerce platform using React and Tailwind CSS. You will work closely with our design team to ensure that our UI is visually appealing and user-friendly, and collaborate with our backend team to ensure seamless integration with our APIs. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in React, JavaScript, and CSS, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "React",
+            "JavaScript",
+            "Tailwind CSS",
+            "CSS",
+            "HTML"
+        ],
+        "url": "https://boards.greenhouse.io/fynd/jobs/789012",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 87.0,
+        "status": "Matched",
+        "tailored_resume": "",
+        "scam_risk_score": 10,
+        "tech_match_score": 100.0,
+        "pref_match_score": 70.0,
+        "trust_score": 90.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "Salary disclosed",
+            "High Opportunity"
+        ],
+        "recommendation_cons": [
+            "Title mismatch"
+        ],
+        "ai_recommendation": "[AI Connection Failed: All configured AI providers failed.] Strong recommendation to apply. You match 5 core skills requested and the listing aligns with your target preferences.",
+        "evaluation_mode": "Local Heuristics",
+        "company_summary": "We are looking for a skilled Frontend Developer to join our team. As a Frontend Developer, you will be responsible for designing and developing the user interface and user experience of our e-commerce platform using React and Tailwind CSS.",
+        "tech_stack": [
+            "React",
+            "JavaScript",
+            "HTML",
+            "CSS",
+            "Tailwind CSS"
+        ],
+        "hiring_signals": [
+            "Standard Technical Review",
+            "Remote-First Setup"
+        ],
+        "trust_rating": "A+"
+    },
+    {
+        "id": "3de82c28-5afe-57af-8a4f-3a23f4b6f05a",
+        "title": "Junior Backend Developer",
+        "company": "Tata Consultancy Services",
+        "location": "Remote",
+        "salary": "\u20b94.0 LPA - \u20b95.5 LPA",
+        "description": "We are seeking a highly motivated and detail-oriented Junior Backend Developer to join our team. As a Junior Backend Developer, you will be responsible for designing, developing, and deploying scalable and efficient backend applications using Node.js and MongoDB. You will work closely with our cross-functional team to identify and prioritize features, and collaborate with our QA team to ensure high-quality delivery. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in Node.js, MongoDB, and JavaScript, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "Node.js",
+            "MongoDB",
+            "JavaScript",
+            "SQL"
+        ],
+        "url": "https://careers.tcs.com/jobs/123789",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 87.0,
+        "status": "Matched",
+        "tailored_resume": "",
+        "scam_risk_score": 10,
+        "tech_match_score": 100.0,
+        "pref_match_score": 70.0,
+        "trust_score": 90.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "Salary disclosed",
+            "High Opportunity"
+        ],
+        "recommendation_cons": [
+            "Title mismatch"
+        ],
+        "ai_recommendation": "[AI Connection Failed: All configured AI providers failed.] Strong recommendation to apply. You match 4 core skills requested and the listing aligns with your target preferences.",
+        "evaluation_mode": "Local Heuristics",
+        "company_summary": "We are seeking a highly motivated and detail-oriented Junior Backend Developer to join our team. As a Junior Backend Developer, you will be responsible for designing, developing, and deploying scalable and efficient backend applications using Node.js and MongoDB.",
+        "tech_stack": [
+            "JavaScript",
+            "Node.js",
+            "MongoDB",
+            "SQL"
+        ],
+        "hiring_signals": [
+            "Standard Technical Review",
+            "Remote-First Setup",
+            "Early Career Onboarding"
+        ],
+        "trust_rating": "A+"
+    },
+    {
+        "id": "2337494b-7f77-552e-ac16-4d4478da0665",
+        "title": "Junior Web Developer",
+        "company": "Wipro",
+        "location": "Remote",
+        "salary": "\u20b93.5 LPA - \u20b95.0 LPA",
+        "description": "We are seeking a highly motivated and detail-oriented Junior Web Developer to join our team. As a Junior Web Developer, you will be responsible for designing, developing, and deploying scalable and efficient web applications using HTML, CSS, and JavaScript. You will work closely with our cross-functional team to identify and prioritize features, and collaborate with our QA team to ensure high-quality delivery. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in HTML, CSS, and JavaScript, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "HTML",
+            "CSS",
+            "JavaScript"
+        ],
+        "url": "https://careers.wipro.com/jobs/123456",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 87.0,
+        "status": "Matched",
+        "tailored_resume": "",
+        "scam_risk_score": 10,
+        "tech_match_score": 100.0,
+        "pref_match_score": 70.0,
+        "trust_score": 90.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "Salary disclosed",
+            "High Opportunity"
+        ],
+        "recommendation_cons": [
+            "Title mismatch"
+        ],
+        "ai_recommendation": "[AI Connection Failed: All configured AI providers failed.] Strong recommendation to apply. You match 3 core skills requested and the listing aligns with your target preferences.",
+        "evaluation_mode": "Local Heuristics",
+        "company_summary": "We are seeking a highly motivated and detail-oriented Junior Web Developer to join our team. As a Junior Web Developer, you will be responsible for designing, developing, and deploying scalable and efficient web applications using HTML, CSS, and JavaScript.",
+        "tech_stack": [
+            "JavaScript",
+            "HTML",
+            "CSS"
+        ],
+        "hiring_signals": [
+            "Standard Technical Review",
+            "Remote-First Setup",
+            "Early Career Onboarding"
+        ],
+        "trust_rating": "A+"
+    },
+    {
+        "id": "a14259b5-6d46-5ec8-ae91-3879a3639313",
+        "title": "React Developer",
+        "company": "Cognizant",
+        "location": "Remote",
+        "salary": "\u20b94.5 LPA - \u20b96.0 LPA",
+        "description": "We are looking for a skilled React Developer to join our team. As a React Developer, you will be responsible for designing and developing the user interface and user experience of our web applications using React and JavaScript. You will work closely with our design team to ensure that our UI is visually appealing and user-friendly, and collaborate with our backend team to ensure seamless integration with our APIs. You will also be responsible for troubleshooting and debugging issues, and contributing to the improvement of our codebase. The ideal candidate will have a strong foundation in React, JavaScript, and CSS, and be able to work in a fast-paced environment with multiple priorities.",
+        "skills_required": [
+            "React",
+            "JavaScript",
+            "CSS",
+            "HTML"
+        ],
+        "url": "https://careers.cognizant.com/jobs/789012",
+        "is_scam": false,
+        "scam_reason": "",
+        "match_score": 87.0,
+        "status": "Matched",
+        "tailored_resume": "",
+        "scam_risk_score": 10,
+        "tech_match_score": 100.0,
+        "pref_match_score": 70.0,
+        "trust_score": 90.0,
+        "opportunity_score": 90.0,
+        "recommendation_pros": [
+            "Salary disclosed",
+            "High Opportunity"
+        ],
+        "recommendation_cons": [
+            "Title mismatch"
+        ],
+        "ai_recommendation": "[AI Connection Failed: All configured AI providers failed.] Strong recommendation to apply. You match 4 core skills requested and the listing aligns with your target preferences.",
+        "evaluation_mode": "Local Heuristics",
+        "company_summary": "We are looking for a skilled React Developer to join our team. As a React Developer, you will be responsible for designing and developing the user interface and user experience of our web applications using React and JavaScript.",
+        "tech_stack": [
+            "React",
+            "JavaScript",
+            "HTML",
+            "CSS"
+        ],
+        "hiring_signals": [
+            "Standard Technical Review",
+            "Remote-First Setup"
+        ],
+        "trust_rating": "A+"
+    }
+]
