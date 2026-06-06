@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../store";
-import { 
-  FaBuilding, 
-  FaMapMarkerAlt, 
-  FaDollarSign, 
-  FaExternalLinkAlt, 
+import {
+  FaBuilding,
+  FaMapMarkerAlt,
+  FaDollarSign,
+  FaExternalLinkAlt,
   FaExclamationTriangle,
   FaCheckCircle,
   FaFileAlt,
@@ -18,20 +18,27 @@ import {
 import Swal from "sweetalert2";
 
 const Dashboard = () => {
-  const { 
-    jobs, 
-    fetchJobs, 
-    updateQueueStatus, 
+  const {
+    jobs,
+    fetchJobs,
+    updateQueueStatus,
     applyJob,
     startups,
     fetchStartups,
+    scrapeMoreStartups,
+    isLoadingMoreStartups,
     metrics,
     fetchMetrics,
     fetchQueue,
     scrapeMoreJobs,
     isLoadingMore,
     validationReport,
-    fetchValidationReport
+    fetchValidationReport,
+    activeFilters,
+    filterOptions,
+    fetchFilterOptions,
+    updateFilter,
+    resetFilters
   } = useStore();
 
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -47,13 +54,17 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const jobsPerPage = 5;
 
+  const [currentStartupPage, setCurrentStartupPage] = useState(1);
+  const startupsPerPage = 3;
+
   useEffect(() => {
     fetchJobs();
     fetchStartups();
     fetchMetrics();
     fetchQueue();
     fetchValidationReport();
-  }, [fetchJobs, fetchStartups, fetchMetrics, fetchQueue, fetchValidationReport]);
+    fetchFilterOptions();
+  }, [fetchJobs, fetchStartups, fetchMetrics, fetchQueue, fetchValidationReport, fetchFilterOptions]);
 
   // Set default selected job
   const filteredJobs = jobs.filter(job => {
@@ -92,6 +103,14 @@ const Dashboard = () => {
     }
   }, [filteredJobs, currentPage, totalPages]);
 
+  const totalStartupPages = Math.ceil(startups.length / startupsPerPage);
+
+  useEffect(() => {
+    if (currentStartupPage > totalStartupPages && totalStartupPages > 0) {
+      setCurrentStartupPage(totalStartupPages);
+    }
+  }, [startups, currentStartupPage, totalStartupPages]);
+
   const indexOfLastJob = currentPage * jobsPerPage;
   const indexOfFirstJob = indexOfLastJob - jobsPerPage;
   const currentJobs = filteredJobs.slice(indexOfFirstJob, indexOfLastJob);
@@ -105,7 +124,7 @@ const Dashboard = () => {
 
   const handleApply = async (jobId) => {
     if (!jobId) return;
-    
+
     const profile = useStore.getState().profile;
     if (!profile.base_resume || profile.base_resume.trim() === "") {
       Swal.fire({
@@ -168,6 +187,35 @@ const Dashboard = () => {
     }
   };
 
+  const handleLoadMoreStartups = async () => {
+    try {
+      const success = await scrapeMoreStartups();
+      if (success) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Discovered new hiring startups!',
+          showConfirmButton: false,
+          timer: 3000,
+          background: "#0f172a",
+          color: "#fff"
+        });
+      } else {
+        Swal.fire({
+          title: "Discovery Failed",
+          text: "Unable to find additional startups. Check your API settings or try again.",
+          icon: "error",
+          background: "#0f172a",
+          color: "#fff",
+          confirmButtonColor: "#06b6d4"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -217,11 +265,10 @@ const Dashboard = () => {
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`text-[8px] px-1.5 py-0.5 rounded font-black tracking-wider border ${
-                job.validation_tier === 'A' ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400' :
+              <span className={`text-[8px] px-1.5 py-0.5 rounded font-black tracking-wider border ${job.validation_tier === 'A' ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400' :
                 job.validation_tier === 'B' ? 'bg-blue-950/60 border-blue-800/80 text-blue-400' :
-                'bg-slate-950/60 border-slate-800 text-slate-400'
-              }`}>
+                  'bg-slate-950/60 border-slate-800 text-slate-400'
+                }`}>
                 {getTierStars(job.validation_tier)} Tier {job.validation_tier}
               </span>
             </div>
@@ -251,28 +298,28 @@ const Dashboard = () => {
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row bg-slate-950 overflow-hidden" style={{ height: "calc(100vh - 73px)" }}>
-      
+
       {/* LEFT PANE: JOBS LIST (3/12 width) */}
       <div className="w-full lg:w-3/12 border-r border-slate-800 flex flex-col bg-slate-900/40">
-        
+
         {/* FILTER TOOLBAR */}
         <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex flex-col gap-3">
           <div className="flex items-center justify-between flex-wrap gap-y-1.5">
             <h2 className="font-bold text-sm text-slate-300 tracking-wider uppercase">Listings Pool</h2>
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={() => { useStore.getState().fetchValidationReport(); setShowValidationModal(true); }}
                 className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-wider transition-colors"
               >
                 Validation Report
               </button>
-              <button 
+              <button
                 onClick={() => { fetchMetrics(); setShowMetricsModal(true); }}
                 className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider transition-colors"
               >
                 Metrics & Logs
               </button>
-              <button 
+              <button
                 onClick={() => { fetchJobs(); fetchStartups(); }}
                 className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider transition-colors"
               >
@@ -286,11 +333,10 @@ const Dashboard = () => {
               <button
                 key={status}
                 onClick={() => setActiveFilterStatus(status)}
-                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase transition-all ${
-                  activeFilterStatus === status 
-                    ? "bg-cyan-500 text-black shadow-sm" 
-                    : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
-                }`}
+                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase transition-all ${activeFilterStatus === status
+                  ? "bg-cyan-500 text-black shadow-sm"
+                  : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
+                  }`}
               >
                 {status}
               </button>
@@ -298,9 +344,9 @@ const Dashboard = () => {
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer mt-1">
-            <input 
-              type="checkbox" 
-              checked={hideScams} 
+            <input
+              type="checkbox"
+              checked={hideScams}
               onChange={(e) => setHideScams(e.target.checked)}
               className="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-cyan-500 w-3.5 h-3.5 cursor-pointer"
             />
@@ -308,6 +354,261 @@ const Dashboard = () => {
               <FaFilter className="text-[9px]" /> Hide Suspected Scams
             </span>
           </label>
+        </div>
+
+        {/* SMART JOB FILTERS TOOLBAR */}
+        <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/40 flex flex-col gap-2">
+          {/* Header & Reset */}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+              <FaFilter className="text-cyan-400" /> Smart Filters
+            </span>
+            <button
+              onClick={() => resetFilters()}
+              className="text-[9px] text-rose-400 hover:text-rose-300 font-black uppercase tracking-wider transition-colors"
+            >
+              Reset All
+            </button>
+          </div>
+
+          {/* Grid of filters */}
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            {/* Experience Dropdown */}
+            <div>
+              <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Experience</label>
+              <select
+                value={activeFilters.experience_levels[0] || "All"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateFilter("experience_levels", val === "All" ? [] : [val]);
+                }}
+                className="w-full bg-slate-950 border border-slate-850 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="All">All Experience</option>
+                <option value="Fresher">Fresher (0 yr)</option>
+                <option value="0-1 Years">0-1 Years</option>
+                <option value="1-2 Years">1-2 Years</option>
+                <option value="2-5 Years">2-5 Years</option>
+                <option value="5+ Years">5+ Years</option>
+              </select>
+            </div>
+
+            {/* Company Type Dropdown */}
+            <div>
+              <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Company Type</label>
+              <select
+                value={activeFilters.company_types[0] || "All"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateFilter("company_types", val === "All" ? [] : [val]);
+                }}
+                className="w-full bg-slate-950 border border-slate-850 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="All">All Types</option>
+                <option value="Startup">Startup</option>
+                <option value="Mid-size Product">Mid-size Product</option>
+                <option value="Enterprise">Enterprise</option>
+                <option value="MNC">MNC</option>
+                <option value="Agency">Agency</option>
+                <option value="Consultancy">Consultancy</option>
+              </select>
+            </div>
+
+            {/* Salary Preset Dropdown */}
+            <div>
+              <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Min Salary</label>
+              <select
+                value={activeFilters.min_salary || "All"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateFilter("min_salary", val === "All" ? null : parseInt(val));
+                }}
+                className="w-full bg-slate-950 border border-slate-850 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="All">Any Salary</option>
+                <option value="3">3+ LPA</option>
+                <option value="5">5+ LPA</option>
+                <option value="8">8+ LPA</option>
+                <option value="12">12+ LPA</option>
+                <option value="15">15+ LPA</option>
+              </select>
+            </div>
+
+            {/* Latest Posted Dropdown */}
+            <div>
+              <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Posted Within</label>
+              <select
+                value={activeFilters.posted_within_days || "All"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateFilter("posted_within_days", val === "All" ? null : parseInt(val));
+                }}
+                className="w-full bg-slate-950 border border-slate-855 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="All">Any Time</option>
+                <option value="1">Last 24 Hours</option>
+                <option value="3">Last 3 Days</option>
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+              </select>
+            </div>
+
+            {/* Fresher Compatibility Dropdown */}
+            <div>
+              <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Fresher Match</label>
+              <select
+                value={activeFilters.fresher_compatibility || "All"}
+                onChange={(e) => {
+                  updateFilter("fresher_compatibility", e.target.value);
+                }}
+                className="w-full bg-slate-950 border border-slate-850 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="All">All Roles</option>
+                <option value="90%+">90%+ Match</option>
+                <option value="75%+">75%+ Match</option>
+                <option value="50%+">50%+ Match</option>
+              </select>
+            </div>
+
+            {/* Source Dropdown */}
+            <div>
+              <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Job Source</label>
+              <select
+                value={activeFilters.sources[0] || "All"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateFilter("sources", val === "All" ? [] : [val]);
+                }}
+                className="w-full bg-slate-950 border border-slate-850 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="All">All Sources</option>
+                {(filterOptions.sources || []).map(src => (
+                  <option key={src} value={src}>{src}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Location Multi-Select Dropdown with Pills */}
+          <div className="text-[10px]">
+            <label className="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Locations</label>
+            <select
+              value=""
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && !activeFilters.locations.includes(val)) {
+                  updateFilter("locations", [...activeFilters.locations, val]);
+                }
+              }}
+              className="w-full bg-slate-950 border border-slate-850 hover:border-slate-700 rounded-lg text-slate-300 p-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer"
+            >
+              <option value="" disabled>Add Location...</option>
+              {(filterOptions.locations || []).map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+
+            {/* Location pills */}
+            {(activeFilters.locations || []).length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {activeFilters.locations.map(loc => (
+                  <span
+                    key={loc}
+                    onClick={() => {
+                      updateFilter("locations", activeFilters.locations.filter(l => l !== loc));
+                    }}
+                    className="px-2 py-0.5 bg-cyan-950/40 border border-cyan-800/60 rounded text-[9px] text-cyan-400 font-bold hover:bg-rose-950/20 hover:border-rose-900/40 hover:text-rose-400 cursor-pointer flex items-center gap-1 transition-all"
+                  >
+                    {loc} <span className="text-[8px]">×</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Work Mode Toggle Row */}
+          <div className="text-[10px]">
+            <label className="text-[8px] font-bold text-slate-500 uppercase block mb-1">Work Mode</label>
+            <div className="flex gap-1.5">
+              {["Remote", "Hybrid", "Onsite"].map(mode => {
+                const isActive = activeFilters.work_modes.includes(mode);
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      const next = isActive
+                        ? activeFilters.work_modes.filter(m => m !== mode)
+                        : [...activeFilters.work_modes, mode];
+                      updateFilter("work_modes", next);
+                    }}
+                    className={`flex-1 py-1 rounded-lg text-[9px] font-black uppercase border transition-all ${isActive
+                      ? "bg-cyan-500 text-black border-cyan-500 shadow-sm"
+                      : "bg-slate-950 border-slate-850 text-slate-400 hover:bg-slate-900 hover:text-white"
+                      }`}
+                  >
+                    {mode}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Validation Tiers Multi-select Row */}
+          <div className="text-[10px] mt-1">
+            <label className="text-[8px] font-bold text-slate-500 uppercase block mb-1">Quality Tiers</label>
+            <div className="flex gap-1.5">
+              {[
+                { id: "A", label: "★★★★★ A" },
+                { id: "B", label: "★★★★☆ B" },
+                { id: "C", label: "★★★☆☆ C" }
+              ].map(tier => {
+                const isActive = activeFilters.tiers.includes(tier.id);
+                return (
+                  <button
+                    key={tier.id}
+                    onClick={() => {
+                      const next = isActive
+                        ? activeFilters.tiers.filter(t => t !== tier.id)
+                        : [...activeFilters.tiers, tier.id];
+                      updateFilter("tiers", next);
+                    }}
+                    className={`flex-1 py-1 rounded-lg text-[8px] font-black uppercase border transition-all ${isActive
+                      ? "bg-emerald-500 text-black border-emerald-500 shadow-sm"
+                      : "bg-slate-950 border-slate-850 text-slate-400 hover:bg-slate-900 hover:text-white"
+                      }`}
+                  >
+                    {tier.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Direct sources toggle switch */}
+          <label className="flex items-center gap-2 cursor-pointer mt-1">
+            <input
+              type="checkbox"
+              checked={
+                activeFilters.sources.length === 6 &&
+                ["Company Careers", "Greenhouse", "Lever", "Ashby", "Workable", "SmartRecruiters"].every(s => activeFilters.sources.includes(s))
+              }
+              onChange={(e) => {
+                const isChecked = e.target.checked;
+                updateFilter("sources", isChecked ? ["Company Careers", "Greenhouse", "Lever", "Ashby", "Workable", "SmartRecruiters"] : []);
+              }}
+              className="rounded bg-slate-950 border-slate-850 text-cyan-500 focus:ring-cyan-500 w-3.5 h-3.5 cursor-pointer"
+            />
+            <span className="text-[9px] font-bold text-cyan-400 flex items-center gap-1">
+              Direct Sources Only
+            </span>
+          </label>
+        </div>
+
+        {/* Filter Analytics result counts */}
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-950/40 border-b border-slate-800 text-[9px] font-black tracking-wider uppercase text-slate-400">
+          <span>Collected: <span className="text-indigo-400">{validationReport.jobs_collected || 0}</span></span>
+          <span>Validated: <span className="text-emerald-400">{validationReport.jobs_displayed || 0}</span></span>
+          <span>Filtered: <span className="text-cyan-400">{jobs.length}</span></span>
         </div>
 
         {/* LIST CONTAINER */}
@@ -408,25 +709,24 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col bg-slate-950 overflow-y-auto p-4 md:p-6 border-r border-slate-800">
         {selectedJob ? (
           <div className="space-y-6">
-            
+
             {/* DETAILS HEADER */}
             <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col gap-4 shadow-xl relative overflow-hidden">
               <div className="flex justify-between items-start gap-4">
                 <div>
                   <h2 className="text-xl md:text-2xl font-black text-slate-100 leading-tight">{selectedJob.title}</h2>
                   <p className="text-xs font-bold text-cyan-400 mt-2 flex flex-wrap items-center gap-2">
-                    {selectedJob.company} 
-                    <button 
+                    {selectedJob.company}
+                    <button
                       onClick={() => handleVerifyCompany(selectedJob.company)}
                       className="px-2.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-[9px] text-slate-300 rounded font-bold flex items-center gap-1 border border-slate-700 transition-colors"
                     >
                       <FaSearch className="text-[8px]" /> Verify Company <FaExternalLinkAlt className="text-[7px]" />
                     </button>
-                    <span className={`px-2 py-0.5 text-[9px] rounded font-bold uppercase tracking-wide border ${
-                      (selectedJob.evaluation_mode || "Local Heuristics").toLowerCase().includes("ai") 
-                        ? "bg-cyan-950/40 border-cyan-800/60 text-cyan-400" 
-                        : "bg-amber-950/40 border-amber-800/60 text-amber-400"
-                    }`}>
+                    <span className={`px-2 py-0.5 text-[9px] rounded font-bold uppercase tracking-wide border ${(selectedJob.evaluation_mode || "Local Heuristics").toLowerCase().includes("ai")
+                      ? "bg-cyan-950/40 border-cyan-800/60 text-cyan-400"
+                      : "bg-amber-950/40 border-amber-800/60 text-amber-400"
+                      }`}>
                       {selectedJob.evaluation_mode || "Local Heuristics"}
                     </span>
                   </p>
@@ -485,7 +785,16 @@ const Dashboard = () => {
                       <FaFileAlt /> View Resume & Autofill
                     </button>
                   )}
-                  
+
+                  <a
+                    href={selectedJob.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    <FaExternalLinkAlt className="text-[10px]" /> Apply on Company Site
+                  </a>
+
                   <button
                     onClick={() => handleApply(selectedJob.id)}
                     className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-black font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-cyan-500/10 hover:scale-105 transition-all"
@@ -504,13 +813,12 @@ const Dashboard = () => {
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-slate-500 font-bold">Confidence:</span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
-                    selectedJob.validation_confidence >= 80
-                      ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400'
-                      : selectedJob.validation_confidence >= 50
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${selectedJob.validation_confidence >= 80
+                    ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400'
+                    : selectedJob.validation_confidence >= 50
                       ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-400'
                       : 'bg-rose-950/40 border-rose-800/40 text-rose-400'
-                  }`}>
+                    }`}>
                     {selectedJob.validation_confidence || 0}%
                   </span>
                 </div>
@@ -521,11 +829,10 @@ const Dashboard = () => {
                 <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
                   <div>
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Validation Grade</span>
-                    <span className={`text-sm font-black mt-1.5 block ${
-                      selectedJob.validation_tier === 'A' ? 'text-emerald-400' :
+                    <span className={`text-sm font-black mt-1.5 block ${selectedJob.validation_tier === 'A' ? 'text-emerald-400' :
                       selectedJob.validation_tier === 'B' ? 'text-blue-400' :
-                      selectedJob.validation_tier === 'C' ? 'text-amber-400' : 'text-slate-400'
-                    }`}>
+                        selectedJob.validation_tier === 'C' ? 'text-amber-400' : 'text-slate-400'
+                      }`}>
                       {getTierStars(selectedJob.validation_tier)} (Tier {selectedJob.validation_tier || 'B'})
                     </span>
                   </div>
@@ -577,26 +884,25 @@ const Dashboard = () => {
                 </h3>
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500 font-bold">Trust Rating:</span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
-                    selectedJob.trust_rating === 'A+' || selectedJob.trust_rating === 'A'
-                      ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400'
-                      : selectedJob.trust_rating === 'B'
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${selectedJob.trust_rating === 'A+' || selectedJob.trust_rating === 'A'
+                    ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400'
+                    : selectedJob.trust_rating === 'B'
                       ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-400'
                       : selectedJob.trust_rating === 'C'
-                      ? 'bg-amber-950/40 border-amber-800/40 text-amber-400'
-                      : 'bg-rose-950/40 border-rose-800/40 text-rose-400'
-                  }`}>
+                        ? 'bg-amber-950/40 border-amber-800/40 text-amber-400'
+                        : 'bg-rose-950/40 border-rose-800/40 text-rose-400'
+                    }`}>
                     {selectedJob.trust_rating || 'B'}
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-3 text-xs leading-relaxed">
                 <div>
                   <span className="text-slate-500 font-bold block uppercase tracking-wider text-[9px]">Company Summary</span>
                   <p className="text-slate-300 mt-1">{selectedJob.company_summary || `${selectedJob.company} is an active technology company hiring in the region.`}</p>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <span className="text-slate-500 font-bold block uppercase tracking-wider text-[9px] mb-1.5">Tech Stack</span>
@@ -612,7 +918,7 @@ const Dashboard = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   <div>
                     <span className="text-slate-500 font-bold block uppercase tracking-wider text-[9px] mb-1.5">Hiring Signals</span>
                     <div className="space-y-1">
@@ -699,13 +1005,12 @@ const Dashboard = () => {
                   const profile = useStore.getState().profile;
                   const isMatched = profile.skills.some(s => s.toLowerCase() === skill.toLowerCase());
                   return (
-                    <span 
-                      key={index} 
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-1 ${
-                        isMatched 
-                          ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" 
-                          : "bg-slate-900 border-slate-800 text-slate-500"
-                      }`}
+                    <span
+                      key={index}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-1 ${isMatched
+                        ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400"
+                        : "bg-slate-900 border-slate-800 text-slate-500"
+                        }`}
                     >
                       {isMatched ? <FaCheck className="text-[9px]" /> : null} {skill}
                     </span>
@@ -724,11 +1029,11 @@ const Dashboard = () => {
 
       {/* RIGHT PANE: STARTUP RADAR (3/12 width) */}
       <div className="w-full lg:w-3/12 border-l border-slate-800 flex flex-col bg-slate-900/40">
-        
+
         {/* PANEL TITLE */}
         <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
           <h2 className="font-bold text-xs text-slate-300 tracking-wider uppercase flex items-center gap-1.5">
-            <FaRocket className="text-emerald-400 text-xs" /> Startup Radar
+            <FaRocket className="text-emerald-400 text-xs" /> Startup Listing
           </h2>
           <span className="text-[9px] bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-full text-emerald-400 font-black tracking-wider uppercase">
             Hiring Local
@@ -743,44 +1048,90 @@ const Dashboard = () => {
               <p className="text-[10px] mt-1 text-slate-600">Startups sync when profile region is set.</p>
             </div>
           ) : (
-            startups.map((company, index) => (
-              <div 
-                key={index}
-                className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl hover:border-slate-700 transition-all flex flex-col gap-2.5 relative overflow-hidden"
-              >
-                <div className="flex justify-between items-start gap-1">
-                  <div>
-                    <h4 className="font-black text-slate-200 text-xs leading-tight">{company.company}</h4>
-                    <p className="text-[10px] text-cyan-400 font-bold mt-1">{company.title}</p>
-                  </div>
-                  <div className="text-[9px] font-black text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
-                    {company.relevance}% Rel
-                  </div>
-                </div>
-
-                <div className="space-y-1 text-[10px] text-slate-400">
-                  <div className="flex items-center gap-1 truncate"><FaMapMarkerAlt className="text-slate-500" /> {company.location}</div>
-                  <div className="flex items-center gap-1 text-emerald-400 font-semibold"><FaDollarSign /> {company.salary}</div>
-                </div>
-
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {company.skills.slice(0, 3).map((skill, sIdx) => (
-                    <span key={sIdx} className="text-[8px] bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-slate-400 font-bold">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-
-                <a
-                  href={company.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-[9px] font-black text-center uppercase tracking-widest text-slate-300 hover:text-white mt-1 transition-colors flex items-center justify-center gap-1"
+            <>
+              {startups.slice((currentStartupPage - 1) * startupsPerPage, currentStartupPage * startupsPerPage).map((company, index) => (
+                <div
+                  key={index}
+                  className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl hover:border-slate-700 transition-all flex flex-col gap-2.5 relative overflow-hidden"
                 >
-                  Radar Link <FaExternalLinkAlt className="text-[7px]" />
-                </a>
+                  <div className="flex justify-between items-start gap-1">
+                    <div>
+                      <h4 className="font-black text-slate-200 text-xs leading-tight">{company.company}</h4>
+                      <p className="text-[10px] text-cyan-400 font-bold mt-1">{company.title}</p>
+                    </div>
+                    <div className="text-[9px] font-black text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
+                      {company.relevance}% Rel
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-1 truncate"><FaMapMarkerAlt className="text-slate-500" /> {company.location}</div>
+                    <div className="flex items-center gap-1 text-emerald-400 font-semibold"><FaDollarSign /> {company.salary}</div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(company.skills || []).slice(0, 3).map((skill, sIdx) => (
+                      <span key={sIdx} className="text-[8px] bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-slate-400 font-bold">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+
+                  <a
+                    href={company.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-[9px] font-black text-center uppercase tracking-widest text-slate-300 hover:text-white mt-1 transition-colors flex items-center justify-center gap-1"
+                  >
+                    Apply Link <FaExternalLinkAlt className="text-[7px]" />
+                  </a>
+                </div>
+              ))}
+
+              {totalStartupPages > 1 && (
+                <div className="flex items-center justify-between p-2 bg-slate-950/40 border border-slate-800/80 rounded-xl my-2">
+                  <button
+                    onClick={() => setCurrentStartupPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentStartupPage === 1}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 rounded-lg text-[9px] font-bold uppercase transition-colors"
+                  >
+                    Prev
+                  </button>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                    Page {currentStartupPage} of {totalStartupPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentStartupPage(prev => Math.min(prev + 1, totalStartupPages))}
+                    disabled={currentStartupPage === totalStartupPages}
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 rounded-lg text-[9px] font-bold uppercase transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              <div className="pt-2 pb-4">
+                <button
+                  onClick={handleLoadMoreStartups}
+                  disabled={isLoadingMoreStartups}
+                  className="w-full py-2.5 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 rounded-xl text-[10px] font-black tracking-wider uppercase text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-1.5"
+                >
+                  {isLoadingMoreStartups ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Discovering...
+                    </>
+                  ) : (
+                    <>
+                      <FaRocket /> Discover More Startups
+                    </>
+                  )}
+                </button>
               </div>
-            ))
+            </>
           )}
         </div>
       </div>
@@ -789,7 +1140,7 @@ const Dashboard = () => {
       {showResumeModal && selectedJob && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-6xl h-[88vh] flex flex-col shadow-2xl overflow-hidden">
-            
+
             {/* MODAL HEADER */}
             <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
               <div>
@@ -837,7 +1188,7 @@ const Dashboard = () => {
 
             {/* MODAL COLUMNS CONTAINER */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              
+
               {/* LEFT COLUMN: FILL ASSISTANCE & AUTOFILL SCRIPT */}
               <div className="flex-1 border-r border-slate-800 flex flex-col overflow-hidden bg-slate-950/20">
                 <div className="px-4 py-2 bg-slate-900/60 border-b border-slate-800 text-[10px] font-black uppercase text-cyan-400 tracking-wider flex justify-between items-center">
@@ -846,13 +1197,13 @@ const Dashboard = () => {
                     Platform: {selectedJob.autofill_data?.platform || "Generic"} ({selectedJob.autofill_data?.automation_support || "40%"})
                   </span>
                 </div>
-                
+
                 <div className="flex-1 p-6 overflow-y-auto space-y-5 text-xs">
                   {/* Standard Profile Fields */}
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Standard Mapped Fields</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {selectedJob.autofill_data?.mapped_fields && 
+                      {selectedJob.autofill_data?.mapped_fields &&
                         Object.entries(selectedJob.autofill_data.mapped_fields).map(([label, val]) => (
                           <div key={label} className="p-2 bg-slate-900 border border-slate-800 rounded-xl flex justify-between items-center min-w-0">
                             <div className="min-w-0">
@@ -867,7 +1218,7 @@ const Dashboard = () => {
                               <FaCopy className="text-[11px]" />
                             </button>
                           </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
 
@@ -944,7 +1295,7 @@ const Dashboard = () => {
       {showMetricsModal && metrics && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl h-[75vh] flex flex-col shadow-2xl overflow-hidden">
-            
+
             {/* HEADER */}
             <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
               <div>
@@ -963,7 +1314,7 @@ const Dashboard = () => {
 
             {/* CONTENT */}
             <div className="flex-1 p-6 overflow-y-auto space-y-6">
-              
+
               {/* METRICS GRID */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-center">
@@ -1021,7 +1372,7 @@ const Dashboard = () => {
       {showValidationModal && validationReport && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl overflow-hidden">
-            
+
             {/* HEADER */}
             <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
               <div>
@@ -1040,7 +1391,7 @@ const Dashboard = () => {
 
             {/* CONTENT */}
             <div className="flex-1 p-6 overflow-y-auto space-y-6">
-              
+
               {/* STATS COUNTERS */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-center">
@@ -1063,7 +1414,7 @@ const Dashboard = () => {
 
               {/* DETAILED REJECTIONS BREAKDOWN */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* BLOCKED CATEGORIES */}
                 <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
                   <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">Blocked Listings Categories</h3>

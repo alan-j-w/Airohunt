@@ -66,6 +66,26 @@ export const useStore = create((set, get) => ({
     
     // Startup Radar State
     startups: [],
+    isLoadingMoreStartups: false,
+
+    // Smart Dynamic Filters State
+    activeFilters: {
+        locations: [],
+        work_modes: [],
+        company_types: [],
+        experience_levels: [],
+        tiers: ["A", "B"],
+        sources: [],
+        min_salary: null,
+        posted_within_days: null,
+        fresher_compatibility: "All"
+    },
+    filterOptions: {
+        locations: [],
+        company_types: [],
+        experience_levels: [],
+        sources: []
+    },
 
     // Resume Version Profiles State
     resumes: {},
@@ -216,21 +236,10 @@ export const useStore = create((set, get) => ({
         }
     },
 
-    // Fetch Matched Jobs list
+    // Fetch Matched Jobs list (respects active filters)
     fetchJobs: async () => {
-        set({ isLoading: true });
-        try {
-            const res = await fetch(`${API_BASE}/jobs`);
-            if (res.ok) {
-                const data = await res.json();
-                set({ jobs: data });
-                get().fetchValidationReport();
-            }
-        } catch (error) {
-            console.error("Error fetching jobs:", error);
-        } finally {
-            set({ isLoading: false });
-        }
+        await get().applyFilters();
+        await get().fetchValidationReport();
     },
 
     // Trigger LLM to scrape/discover more jobs
@@ -403,6 +412,85 @@ export const useStore = create((set, get) => ({
         }
     },
 
+    // Scrape/discover more startups dynamically
+    scrapeMoreStartups: async () => {
+        set({ isLoadingMoreStartups: true });
+        try {
+            const res = await fetch(`${API_BASE}/startups/radar/scrape-more`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                set({ startups: data });
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error scraping more startups:", error);
+            return false;
+        } finally {
+            set({ isLoadingMoreStartups: false });
+        }
+    },
+
+    // Fetch Filter Options from Backend
+    fetchFilterOptions: async () => {
+        try {
+            const res = await fetch(`${API_BASE}/filter-options`);
+            if (res.ok) {
+                const data = await res.json();
+                set({ filterOptions: data });
+            }
+        } catch (error) {
+            console.error("Error fetching filter options:", error);
+        }
+    },
+
+    // Apply active job filters to jobs pool
+    applyFilters: async (customFilters = null) => {
+        set({ isLoading: true });
+        const filters = customFilters || get().activeFilters;
+        try {
+            const res = await fetch(`${API_BASE}/jobs/filter`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(filters)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                set({ jobs: data, activeFilters: filters });
+            }
+        } catch (error) {
+            console.error("Error applying filters:", error);
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    // Update single filter value and auto-apply
+    updateFilter: async (name, value) => {
+        const nextFilters = { ...get().activeFilters, [name]: value };
+        await get().applyFilters(nextFilters);
+    },
+
+    // Reset filters to defaults and reload jobs pool
+    resetFilters: async () => {
+        const defaultFilters = {
+            locations: [],
+            work_modes: [],
+            company_types: [],
+            experience_levels: [],
+            tiers: ["A", "B"],
+            sources: [],
+            min_salary: null,
+            posted_within_days: null,
+            fresher_compatibility: "All"
+        };
+        set({ activeFilters: defaultFilters });
+        await get().applyFilters(defaultFilters);
+    },
+
     // Fetch Resume Versions
     fetchResumes: async () => {
         try {
@@ -554,6 +642,24 @@ export const useStore = create((set, get) => ({
                     },
                     jobs: [],
                     startups: [],
+                    isLoadingMoreStartups: false,
+                    activeFilters: {
+                        locations: [],
+                        work_modes: [],
+                        company_types: [],
+                        experience_levels: [],
+                        tiers: ["A", "B"],
+                        sources: [],
+                        min_salary: null,
+                        posted_within_days: null,
+                        fresher_compatibility: "All"
+                    },
+                    filterOptions: {
+                        locations: [],
+                        company_types: [],
+                        experience_levels: [],
+                        sources: []
+                    },
                     resumes: {},
                     queue: { applications: {}, audit_logs: [] },
                     metrics: { total_submitted: 0, interview_rate: 0.0, offer_rate: 0.0, best_source: "N/A", best_resume: "N/A", audit_logs: [] },

@@ -14,7 +14,7 @@ KERALA_STARTUPS_POOL = [
         "salary": "₹3.6 LPA - ₹5.0 LPA",
         "description": "Riafy is a leading product startup building global AI apps. We are looking for a Junior React Developer. Hiring is project-based: we will review your Github repositories and ask you to build a small web widget instead of solving DSA whiteboard algorithms. Strong Javascript/CSS skills are required.",
         "skills_required": ["React", "JavaScript", "HTML", "CSS", "Git"],
-        "url": "https://riafy.me/careers"
+        "url": "https://riafy.me"
     },
     {
         "title": "Django Backend Developer",
@@ -32,7 +32,7 @@ KERALA_STARTUPS_POOL = [
         "salary": "₹5.0 LPA - ₹7.2 LPA",
         "description": "KeyValue builds scalable product systems. Hiring MERN developers. We value clean code, git usage, and solid frontend state design. We test candidates via take-home coding challenges where you write clean, modular React and Node code.",
         "skills_required": ["MongoDB", "Express.js", "React", "Node.js", "TypeScript", "Git"],
-        "url": "https://keyvaluesystems.com/careers"
+        "url": "https://keyvalue.systems/careers"
     },
     {
         "title": "Software Engineer Intern (Python)",
@@ -50,7 +50,7 @@ KERALA_STARTUPS_POOL = [
         "salary": "₹3.0 LPA - ₹4.5 LPA",
         "description": "Entri is a high-growth local learning startup. We are seeking a Fresher React Developer to build responsive user portals. We do not do DSA-heavy interviews. We evaluate your web portfolio and take-home React widgets.",
         "skills_required": ["React", "JavaScript", "CSS"],
-        "url": "https://entri.app/careers"
+        "url": "https://entri.app"
     },
     {
         "title": "Junior Python Web Developer",
@@ -68,7 +68,7 @@ KERALA_STARTUPS_POOL = [
         "salary": "₹8.0 LPA - ₹12.0 LPA",
         "description": "Huddle is a remote-first startup. We hire MERN/React engineers. Hiring is 100% remote: we review your Github, look at your projects, and host a collaborative coding session where we add a feature together.",
         "skills_required": ["React", "JavaScript", "TypeScript", "Tailwind CSS"],
-        "url": "https://huddleremote.example.com/careers"
+        "url": "https://wellfound.com"
     }
 ]
 
@@ -109,7 +109,7 @@ You MUST return a JSON list of job objects. Each object MUST have this schema:
     "salary": "Salary (transparency is key, e.g. ₹4.5 LPA - ₹6.0 LPA or $80,000 - $100,000)",
     "description": "A detailed job description specifying responsibilities, target skills, tech stack, and evaluation style (e.g. project-based vs whiteboarding). Make it realistic and detailed (at least 3-4 sentences).",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "A realistic applicant tracking system URL, e.g., Greenhouse or Lever, such as https://boards.greenhouse.io/company/jobs/123456 or https://jobs.lever.co/company/abc-def"
+    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, https://keyvalue.systems/careers, https://accubits.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company, not a fake/simulated Greenhouse/Lever URL."
   }}
 ]
 

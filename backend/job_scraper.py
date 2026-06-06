@@ -18,6 +18,7 @@ from ai.strict_job_validator import StrictJobValidationEngine, deduplicate_jobs,
 from constants import TECH_MATCH_WEIGHT, PREFERENCE_MATCH_WEIGHT, TRUST_SCORE_WEIGHT, OPPORTUNITY_SCORE_WEIGHT
 import shutil
 
+
 SETTINGS_FILE = "settings.json"
 
 def get_active_providers() -> List[str]:
@@ -597,7 +598,7 @@ You MUST return a JSON list of job objects. Each object MUST have this schema:
     "salary": "Salary (transparency is key, e.g. ₹4.5 LPA - ₹6.0 LPA or $80,000 - $100,000)",
     "description": "A detailed job description specifying responsibilities, tech stack, and evaluation style. Make it realistic and detailed (at least 3-4 sentences).",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "A realistic applicant tracking system URL, e.g., Greenhouse or Lever, such as https://boards.greenhouse.io/company/jobs/123456"
+    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, https://keyvalue.systems/careers, https://accubits.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company, not a fake/simulated Greenhouse/Lever URL."
   }}
 ]
 
@@ -634,17 +635,26 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
         # Local fallback generation based on candidate's skills and preferences
         fallback_roles = profile_roles if profile_roles else ["Full Stack Developer", "Software Engineer"]
         fallback_pool = []
-        companies = ["Alpha Web Labs", "Beta Systems", "Kerala Innovation Hub", "TechVanguard", "Cognitive Solutions"]
+        real_companies = [
+            {"name": "SayOne Technologies", "url": "https://sayonetech.com/careers"},
+            {"name": "KeyValue Systems", "url": "https://keyvalue.systems/careers"},
+            {"name": "Accubits Technologies", "url": "https://accubits.com/careers"},
+            {"name": "Riafy Technologies", "url": "https://riafy.me"},
+            {"name": "Entri.app", "url": "https://entri.app"},
+            {"name": "CareStack Systems", "url": "https://carestack.com/careers"},
+            {"name": "UST Global", "url": "https://ust.com/careers"},
+            {"name": "IBS Software", "url": "https://www.ibssoftware.com/careers"}
+        ]
         for idx, role in enumerate(fallback_roles):
-            company_name = companies[idx % len(companies)]
+            comp_info = real_companies[idx % len(real_companies)]
             fallback_pool.append({
                 "title": f"Associate {role} Developer",
-                "company": company_name,
+                "company": comp_info["name"],
                 "location": f"{location_pref} (Hybrid)",
                 "salary": "₹3.8 LPA - ₹5.5 LPA",
-                "description": f"{company_name} is seeking an Associate {role} Developer to join our growing engineering department. This is a project-focused role where candidates will build and scale web services. Evaluation is strictly portfolio and task-oriented, no whiteboard DSA.",
+                "description": f"{comp_info['name']} is seeking an Associate {role} Developer to join our growing engineering department. This is a project-focused role where candidates will build and scale web services. Evaluation is strictly portfolio and task-oriented, no whiteboard DSA.",
                 "skills_required": profile_skills[:3] if profile_skills else ["Python", "React", "JavaScript"],
-                "url": f"https://{company_name.lower().replace(' ', '')}.example.com/careers"
+                "url": comp_info["url"]
             })
         
         # Filter out existing ones

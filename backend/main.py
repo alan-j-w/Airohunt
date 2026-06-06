@@ -7,13 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from datetime import datetime
 
-from models import UserProfile, Job, Pipeline, AISettings
+from models import UserProfile, Job, Pipeline, AISettings, JobFilterState
 from job_scraper import generate_jobs_list
 from resume_tailor import process_resume_tailoring
 from ai.provider_manager import ProviderManager
 from job_sources.company_careers_provider import KERALA_STARTUPS_POOL
 from ai.resume_version_manager import ResumeVersionManager
 from automation.application_engine import ApplicationEngine
+from ai.strict_job_validator import StrictJobValidationEngine
 
 app = FastAPI()
 
@@ -32,6 +33,7 @@ JOBS_STORE_FILE = "jobs_store.json"
 SETTINGS_FILE = "settings.json"
 RESUME_PROFILES_FILE = "resume_profiles.json"
 APPLICATION_QUEUE_FILE = "application_queue.json"
+STARTUPS_STORE_FILE = "startups_store.json"
 
 def load_application_queue() -> dict:
     default_queue = {
@@ -207,8 +209,7 @@ async def upload_resume(file: UploadFile = File(...)):
     }
 
 
-@app.get("/api/jobs")
-async def get_jobs():
+async def get_all_jobs() -> List[Job]:
     pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
     jobs_list = await generate_jobs_list(current_profile, pipeline.get("nodes", []))
     
@@ -224,6 +225,8 @@ async def get_jobs():
         if jid in jobs_list_dict:
             jobs_list_dict[jid].status = db_job_dict.get("status", "Matched")
             jobs_list_dict[jid].tailored_resume = db_job_dict.get("tailored_resume", "")
+            if "posted_at" in db_job_dict:
+                jobs_list_dict[jid].posted_at = db_job_dict["posted_at"]
         else:
             try:
                 extra_job = Job(**db_job_dict)
@@ -234,6 +237,10 @@ async def get_jobs():
     final_list = list(jobs_list_dict.values())
     final_list.sort(key=lambda x: x.match_score, reverse=True)
     return final_list
+
+@app.get("/api/jobs")
+async def get_jobs():
+    return await get_all_jobs()
 
 @app.post("/api/jobs/scrape-more")
 async def scrape_more_jobs_endpoint():
@@ -477,16 +484,24 @@ async def test_settings_connection(data: dict):
 
 @app.get("/api/startups/radar")
 async def get_startups_radar():
+    global STARTUPS_STORE_FILE
+    # Load from file. If it doesn't exist, initialize with KERALA_STARTUPS_POOL and save to file.
+    startups_data = load_json_file(STARTUPS_STORE_FILE, [])
+    if not startups_data:
+        startups_data = KERALA_STARTUPS_POOL.copy()
+        save_json_file(STARTUPS_STORE_FILE, startups_data)
+
     # Return hiring startups list matching target roles
     user_roles_lower = [r.lower() for r in current_profile.target_roles]
     user_skills_lower = [s.lower() for s in current_profile.skills]
     
     radar_list = []
     
-    for s in KERALA_STARTUPS_POOL:
+    for s in startups_data:
         # Check relevance
         role_rel = any(role in s["title"].lower() for role in user_roles_lower)
-        skill_rel = any(skill.lower() in " ".join(s["skills_required"]).lower() for skill in user_skills_lower)
+        skills_list = s.get("skills_required") or s.get("skills") or []
+        skill_rel = any(skill.lower() in " ".join(skills_list).lower() for skill in user_skills_lower)
         
         relevance_score = 50.0
         if role_rel:
@@ -500,13 +515,428 @@ async def get_startups_radar():
             "location": s["location"],
             "salary": s["salary"],
             "relevance": relevance_score,
-            "skills": s["skills_required"],
-            "url": s["url"]
+            "skills": skills_list,
+            "url": s["url"],
+            "description": s.get("description", "")
         })
         
     # Sort by relevance
     radar_list.sort(key=lambda x: x["relevance"], reverse=True)
     return radar_list
+
+
+# ─────────────── SMART DYNAMIC JOB FILTERS UTILS & ENDPOINTS ───────────────
+
+def classify_work_mode(job: Job) -> str:
+    loc_lower = job.location.lower()
+    desc_lower = job.description.lower()
+    if "remote" in loc_lower or "work from home" in loc_lower or "wfh" in loc_lower or "remote" in desc_lower or "work from home" in desc_lower:
+        return "Remote"
+    elif "hybrid" in loc_lower or "hybrid" in desc_lower:
+        return "Hybrid"
+    return "Onsite"
+
+def get_experience_category(job: Job) -> str:
+    validator = StrictJobValidationEngine(current_profile)
+    years = validator._parse_experience(job)
+    if years == 0:
+        return "Fresher"
+    elif years == 1:
+        return "0-1 Years"
+    elif years == 2:
+        return "1-2 Years"
+    elif years <= 5:
+        return "2-5 Years"
+    return "5+ Years"
+
+def classify_company_type(job: Job) -> str:
+    comp_lower = job.company.lower()
+    desc_lower = job.description.lower()
+    summary_lower = job.company_summary.lower() if hasattr(job, 'company_summary') else ""
+    
+    # Startup check
+    is_startup = ("startup" in comp_lower or 
+                  "startup" in desc_lower or 
+                  "startup" in summary_lower or
+                  any(s in comp_lower for s in ["riafy", "sayone", "keyval", "accubits", "entri", "carestack", "focaloid"]))
+    if is_startup:
+        return "Startup"
+        
+    # MNC Check
+    is_mnc = ("mnc" in comp_lower or 
+              "mnc" in desc_lower or 
+              "multinational" in desc_lower or 
+              "global" in comp_lower or
+              any(s in comp_lower for s in ["google", "infosys", "tech mahindra", "nagarro", "tata", "tcs", "wipro", "cognizant", "toptal", "ust global", "ibs software", "ibs"]))
+    if is_mnc:
+        return "MNC"
+        
+    # Consultancy / Service Agency
+    is_consultancy = ("consultancy" in comp_lower or "consulting" in comp_lower or "services" in comp_lower or "agency" in comp_lower or "agency" in desc_lower)
+    if is_consultancy:
+        return "Consultancy"
+        
+    # Mid-size Product
+    is_product = ("product" in desc_lower or "product" in comp_lower or "product" in summary_lower)
+    if is_product:
+        return "Mid-size Product"
+        
+    return "Enterprise"
+
+def get_job_source(job: Job) -> str:
+    url = job.url.lower()
+    if "greenhouse.io" in url:
+        return "Greenhouse"
+    elif "lever.co" in url:
+        return "Lever"
+    elif "ashbyhq.com" in url:
+        return "Ashby"
+    elif "workable.com" in url:
+        return "Workable"
+    elif "smartrecruiters.com" in url:
+        return "SmartRecruiters"
+    elif "jooble" in url:
+        return "Jooble"
+    elif "adzuna" in url:
+        return "Adzuna"
+    elif "careers" in url or any(s in job.company.lower() for s in ["riafy", "sayone", "keyval", "accubits", "entri", "carestack"]):
+        return "Company Careers"
+    return "Other"
+
+def get_fresher_compatibility_score(job: Job) -> float:
+    score = 0.0
+    validator = StrictJobValidationEngine(current_profile)
+    
+    # 1. Experience Match (max 40 pts)
+    years = validator._parse_experience(job)
+    if years == 0:
+        score += 40.0
+    elif years == 1:
+        score += 20.0
+        
+    # 2. Role Match (max 20 pts)
+    title_lower = job.title.lower()
+    if any(kw in title_lower for kw in ["fresher", "intern", "trainee", "junior", "associate", "entry-level"]):
+        score += 20.0
+    elif any(role.lower() in title_lower for role in current_profile.target_roles):
+        score += 10.0
+        
+    # 3. Skill Match (max 20 pts)
+    desc_lower = job.description.lower()
+    matched_skills = []
+    for skill in current_profile.skills:
+        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
+        if re.search(pattern, desc_lower) or any(s.lower() == skill.lower() for s in job.skills_required):
+            matched_skills.append(skill)
+    ratio = len(matched_skills) / max(len(current_profile.skills), 1)
+    if ratio >= 0.5 or len(matched_skills) >= 3:
+        score += 20.0
+    elif len(matched_skills) >= 1:
+        score += 10.0
+        
+    # 4. Company Type (max 10 pts)
+    comp_type = classify_company_type(job)
+    if comp_type in ["Startup", "Mid-size Product"]:
+        score += 10.0
+        
+    # 5. Hiring Style (max 10 pts)
+    if any(kw in desc_lower for kw in ["project-based", "portfolio", "take-home", "coding task", "no whiteboard", "no dsa"]):
+        score += 10.0
+        
+    return score
+
+@app.get("/api/filter-options")
+async def get_filter_options():
+    jobs = await get_all_jobs()
+    
+    locations = set()
+    for j in jobs:
+        loc = j.location.lower()
+        if "remote" in loc:
+            locations.add("Remote")
+        if "kochi" in loc or "cochin" in loc:
+            locations.add("Kochi")
+        if "trivandrum" in loc or "thiruvananthapuram" in loc:
+            locations.add("Trivandrum")
+        if "kozhikode" in loc or "calicut" in loc:
+            locations.add("Kozhikode")
+        if "bangalore" in loc or "bengaluru" in loc:
+            locations.add("Bangalore")
+        if "hyderabad" in loc:
+            locations.add("Hyderabad")
+        if "chennai" in loc:
+            locations.add("Chennai")
+        if "pune" in loc:
+            locations.add("Pune")
+        if "mumbai" in loc:
+            locations.add("Mumbai")
+        if "delhi" in loc or "ncr" in loc:
+            locations.add("Delhi")
+            
+    if not locations:
+        locations = list(set(j.location for j in jobs if j.location))
+    else:
+        locations = sorted(list(locations))
+        
+    company_types = ["Startup", "Mid-size Product", "Enterprise", "MNC", "Agency", "Consultancy"]
+    experience_levels = ["Fresher", "0-1 Years", "1-2 Years", "2-5 Years", "5+ Years"]
+    sources = ["Company Careers", "Greenhouse", "Lever", "Ashby", "Workable", "SmartRecruiters", "Jooble", "Adzuna", "Other"]
+    
+    return {
+        "locations": locations,
+        "company_types": company_types,
+        "experience_levels": experience_levels,
+        "sources": sources
+    }
+
+@app.post("/api/jobs/filter")
+async def filter_jobs(filter_state: JobFilterState):
+    jobs = await get_all_jobs()
+    filtered = []
+    
+    stats_file = "filter_usage_stats.json"
+    stats = load_json_file(stats_file, {
+        "locations": {},
+        "work_modes": {},
+        "company_types": {},
+        "experience_levels": {},
+        "tiers": {},
+        "sources": {},
+        "min_salary_clicks": 0,
+        "posted_within_days_clicks": 0,
+        "fresher_compatibility_clicks": 0
+    })
+    
+    def inc_stat(category, values):
+        if not values:
+            return
+        if category not in stats:
+            stats[category] = {}
+        for val in values:
+            stats[category][val] = stats[category].get(val, 0) + 1
+            
+    inc_stat("locations", filter_state.locations)
+    inc_stat("work_modes", filter_state.work_modes)
+    inc_stat("company_types", filter_state.company_types)
+    inc_stat("experience_levels", filter_state.experience_levels)
+    inc_stat("tiers", filter_state.tiers)
+    inc_stat("sources", filter_state.sources)
+    if filter_state.min_salary is not None:
+        stats["min_salary_clicks"] = stats.get("min_salary_clicks", 0) + 1
+    if filter_state.posted_within_days is not None:
+        stats["posted_within_days_clicks"] = stats.get("posted_within_days_clicks", 0) + 1
+    if filter_state.fresher_compatibility:
+        stats["fresher_compatibility_clicks"] = stats.get("fresher_compatibility_clicks", 0) + 1
+        
+    save_json_file(stats_file, stats)
+    
+    for j in jobs:
+        if filter_state.locations:
+            loc_match = False
+            for target_loc in filter_state.locations:
+                if target_loc.lower() == "remote" and ("remote" in j.location.lower() or "wfh" in j.location.lower() or "work from home" in j.location.lower()):
+                    loc_match = True
+                    break
+                elif target_loc.lower() in j.location.lower():
+                    loc_match = True
+                    break
+            if not loc_match:
+                continue
+                
+        if filter_state.work_modes:
+            mode = classify_work_mode(j)
+            if mode not in filter_state.work_modes:
+                continue
+                
+        if filter_state.experience_levels:
+            exp_cat = get_experience_category(j)
+            if exp_cat not in filter_state.experience_levels:
+                continue
+                
+        if filter_state.company_types:
+            comp_type = classify_company_type(j)
+            if comp_type not in filter_state.company_types:
+                continue
+                
+        if filter_state.tiers:
+            if j.validation_tier not in filter_state.tiers:
+                continue
+                
+        if filter_state.sources:
+            src = get_job_source(j)
+            if src not in filter_state.sources:
+                continue
+                
+        if filter_state.min_salary is not None:
+            sal_str = j.salary.lower()
+            sal_val = 0.0
+            if "not specified" not in sal_str and sal_str.strip():
+                numbers = [float(n) for n in re.findall(r'\d+(?:\.\d+)?', sal_str.replace(',', ''))]
+                if numbers:
+                    val = numbers[0]
+                    is_lpa = "lpa" in sal_str or "lakh" in sal_str or "l" in sal_str or "₹" in j.salary
+                    is_monthly = "month" in sal_str or "/mo" in sal_str or "pm" in sal_str
+                    if is_lpa:
+                        sal_val = val
+                    elif is_monthly:
+                        sal_val = (val * 12) / 100000.0
+                    else:
+                        if val > 1000:
+                            sal_val = (val * 83.0) / 100000.0
+                        else:
+                            sal_val = val
+            if sal_val < filter_state.min_salary:
+                continue
+                
+        if filter_state.posted_within_days is not None:
+            posted_date_str = j.posted_at or datetime.now().isoformat()
+            try:
+                posted_date = datetime.fromisoformat(posted_date_str)
+                delta = datetime.now() - posted_date
+                if delta.days > filter_state.posted_within_days:
+                    continue
+            except Exception:
+                pass
+                
+        if filter_state.fresher_compatibility and filter_state.fresher_compatibility != "All":
+            comp_score = get_fresher_compatibility_score(j)
+            threshold = 0.0
+            if filter_state.fresher_compatibility == "90%+":
+                threshold = 90.0
+            elif filter_state.fresher_compatibility == "75%+":
+                threshold = 75.0
+            elif filter_state.fresher_compatibility == "50%+":
+                threshold = 50.0
+            if comp_score < threshold:
+                continue
+                
+        filtered.append(j)
+        
+    return filtered
+
+
+@app.post("/api/startups/radar/scrape-more")
+async def scrape_more_startups_endpoint():
+    global STARTUPS_STORE_FILE
+    # Load existing startups
+    startups_data = load_json_file(STARTUPS_STORE_FILE, [])
+    if not startups_data:
+        startups_data = KERALA_STARTUPS_POOL.copy()
+
+    # Query LLM (or fallback) to fetch additional unique startups
+    pm = ProviderManager()
+    active_provider = pm.settings.get("active_provider", "local")
+    
+    profile_skills = current_profile.skills
+    profile_roles = current_profile.target_roles
+    experience_level = current_profile.experience_level
+    location_pref = current_profile.location or "Remote"
+    
+    existing_companies_str = "\n".join([f"- {s.get('company')} ({s.get('title')})" for s in startups_data])
+    
+    new_startups = []
+    
+    if active_provider and active_provider.lower() != "local":
+        try:
+            system_prompt = "You are a professional Job Discovery Scraper Agent specializing in Startups."
+            user_prompt = f"""
+Search your database and knowledge base to fetch a list of 4-6 real-world, active technology startups hiring in India (especially Kochi/Trivandrum/Bangalore/Remote) matching the candidate's profile:
+- Candidate Skills: {", ".join(profile_skills)}
+- Target Roles: {", ".join(profile_roles)}
+- Experience Level: {experience_level}
+- Location Preference: {location_pref}
+
+CRITICAL: Do NOT return any of the following startups/roles that the candidate already has in their list:
+{existing_companies_str}
+
+You MUST return a JSON list of startup hiring objects. Each object MUST have this schema:
+[
+  {{
+    "title": "Hiring Job Title (e.g. Junior Web Developer, Full Stack Engineer)",
+    "company": "Company Name (use real technology startups active in India/Remote, e.g. UST Global, CareStack, Accubits, Riafy, SayOne, Entri, KeyValue, or others)",
+    "location": "Location (e.g. Kochi, Kerala, India or Remote)",
+    "salary": "Salary (e.g. ₹4.0 LPA - ₹6.0 LPA or $50,000 - $70,000)",
+    "description": "A brief description of what the startup does and the hiring role details.",
+    "skills_required": ["Skill1", "Skill2", "Skill3"],
+    "url": "The direct official careers website URL of the company (e.g., https://companyname.com/careers or similar official company website). It MUST be a real, working website URL, not a simulated Greenhouse/Lever URL."
+  }}
+]
+
+Return ONLY the raw JSON list. Do not write any explanation, introduction, markdown blocks, or code fences.
+"""
+            res = await pm.call_llm(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format_json=True
+            )
+            
+            res_clean = res.strip()
+            if res_clean.startswith("```json"):
+                res_clean = res_clean[7:]
+            if res_clean.endswith("```"):
+                res_clean = res_clean[:-3]
+                
+            startups_list = json.loads(res_clean.strip())
+            if isinstance(startups_list, list):
+                for s in startups_list:
+                    new_startups.append({
+                        "title": s.get("title", "Software Engineer"),
+                        "company": s.get("company", "Tech Startup"),
+                        "location": s.get("location", location_pref),
+                        "salary": s.get("salary", "Not Specified"),
+                        "description": s.get("description", "Hiring role."),
+                        "skills_required": s.get("skills_required") or s.get("skills") or ["Software"],
+                        "url": s.get("url", "https://wellfound.com")
+                    })
+        except Exception as e:
+            print(f"LLM Startup Scraper failed, falling back: {str(e)}")
+
+    if not new_startups:
+        # Fallback local pool generation of new startups
+        fallback_startups = [
+            {
+                "title": "Junior QA Automation Engineer",
+                "company": "UST Global",
+                "location": "Trivandrum, Kerala (Hybrid)",
+                "salary": "₹4.0 LPA - ₹5.5 LPA",
+                "description": "UST is a global digital transformation company. Seeking junior QA engineers. Evaluated via a practical coding task.",
+                "skills_required": ["Selenium", "JavaScript", "Python"],
+                "url": "https://ust.com/careers"
+            },
+            {
+                "title": "Associate React Developer",
+                "company": "IBS Software",
+                "location": "Kochi, Kerala (Onsite)",
+                "salary": "₹3.8 LPA - ₹5.2 LPA",
+                "description": "IBS Software is a leading SaaS solutions provider to the travel industry. Hiring React Developers.",
+                "skills_required": ["React", "JavaScript", "HTML", "CSS"],
+                "url": "https://www.ibssoftware.com/careers"
+            },
+            {
+                "title": "Node.js Backend Developer",
+                "company": "Focaloid Technologies",
+                "location": "Kochi, Kerala (Remote/Hybrid)",
+                "salary": "₹4.5 LPA - ₹6.2 LPA",
+                "description": "Focaloid is a digital solutions company. Hiring backend developer with Node.js and MongoDB skills.",
+                "skills_required": ["Node.js", "Express.js", "MongoDB", "JavaScript"],
+                "url": "https://focaloid.com/careers"
+            }
+        ]
+        
+        # Filter out existing ones
+        for item in fallback_startups:
+            if not any(s.get('company', '').lower() == item['company'].lower() for s in startups_data):
+                new_startups.append(item)
+
+    # Append to existing
+    for item in new_startups:
+        if not any(s.get('company', '').lower() == item['company'].lower() and s.get('title', '').lower() == item['title'].lower() for s in startups_data):
+            startups_data.append(item)
+            
+    save_json_file(STARTUPS_STORE_FILE, startups_data)
+    
+    # Return updated sorted list
+    return await get_startups_radar()
 
 
 # Backwards compatibility endpoint
@@ -688,6 +1118,8 @@ async def reset_all_data():
         SETTINGS_FILE, 
         RESUME_PROFILES_FILE, 
         APPLICATION_QUEUE_FILE,
+        STARTUPS_STORE_FILE,
+        "filter_usage_stats.json",
         "validation_stats.json",
         "validation_history.json"
     ]

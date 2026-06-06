@@ -31,3 +31,17 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Airohunt local app data & cache files
+backend/settings.json
+backend/profile.json
+backend/jobs_store.json
+backend/validation_history.json
+backend/validation_stats.json
+backend/application_queue.json
+backend/filter_usage_stats.json
+backend/startups_store.json
+backend/resume_profiles.json
+backend/*.json.corrupted
+backend/temp/
+

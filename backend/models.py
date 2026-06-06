@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime
 
 class UserProfile(BaseModel):
     name: str = ""
@@ -37,6 +38,7 @@ class Job(BaseModel):
     match_score: float = 0.0
     status: str = "Matched" # Matched, Applied, Interviewing, Offered, Rejected
     tailored_resume: Optional[str] = ""
+    posted_at: Optional[str] = Field(default_factory=lambda: datetime.now().isoformat())
     
     # New AI Scoring Breakdown
     scam_risk_score: int = 0
@@ -80,3 +82,16 @@ class AISettings(BaseModel):
     source_jooble: bool = True
     source_manual_import: bool = False
     source_company_careers: bool = True
+
+
+class JobFilterState(BaseModel):
+    locations: List[str] = []
+    work_modes: List[str] = []
+    company_types: List[str] = []
+    experience_levels: List[str] = []
+    tiers: List[str] = []
+    sources: List[str] = []
+    min_salary: Optional[int] = None
+    posted_within_days: Optional[int] = None
+    fresher_compatibility: Optional[str] = None
+
