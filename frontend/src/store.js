@@ -20,14 +20,14 @@ export const useStore = create((set, get) => ({
         name: "",
         email: "",
         phone: "",
-        location: "",
+        location: "Kerala, India",
         target_roles: [],
         skills: [],
         salary_expectation: 0,
         base_resume: "",
         experience_level: "Fresher",
-        preferred_work_mode: "Remote",
-        region: "Kerala",
+        preferred_work_mode: "Any",
+        region: "Kerala, India",
         ai_instructions: "",
         preferred_company_types: [],
         excluded_company_types: [],
@@ -243,12 +243,13 @@ export const useStore = create((set, get) => ({
     },
 
     // Trigger LLM to scrape/discover more jobs
-    scrapeMoreJobs: async () => {
+    scrapeMoreJobs: async (keywords = "", location = "") => {
         set({ isLoadingMore: true });
         try {
             const res = await fetch(`${API_BASE}/jobs/scrape-more`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" }
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ keywords, location })
             });
             if (res.ok) {
                 const data = await res.json();
@@ -604,14 +605,14 @@ export const useStore = create((set, get) => ({
                         name: "",
                         email: "",
                         phone: "",
-                        location: "",
+                        location: "Kerala, India",
                         target_roles: [],
                         skills: [],
                         salary_expectation: 0,
                         base_resume: "",
                         experience_level: "Fresher",
-                        preferred_work_mode: "Remote",
-                        region: "Kerala",
+                        preferred_work_mode: "Any",
+                        region: "Kerala, India",
                         ai_instructions: "",
                         preferred_company_types: [],
                         excluded_company_types: [],

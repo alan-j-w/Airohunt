@@ -483,7 +483,7 @@ async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = 
     displayed_jobs.sort(key=lambda x: x.match_score, reverse=True)
     return displayed_jobs
 
-async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipeline_nodes: List[dict] = None) -> List[Job]:
+async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipeline_nodes: List[dict] = None, override_keywords: str = None, override_location: str = None) -> List[Job]:
     if pipeline_nodes is None:
         try:
             with open("pipeline.json", "r") as f:
@@ -562,6 +562,12 @@ async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipe
     if profile.location and location_pref == "Remote":
         location_pref = profile.location
 
+    # Apply overrides if provided
+    if override_keywords and override_keywords.strip():
+        keywords = override_keywords.strip()
+    if override_location and override_location.strip():
+        location_pref = override_location.strip()
+
     # 2. Build existing jobs list to exclude them
     existing_jobs_str = "\n".join([f"- {j.get('title')} at {j.get('company')}" for j in existing_jobs])
 
@@ -579,9 +585,9 @@ async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipe
         try:
             system_prompt = "You are a professional Job Discovery Scraper Agent."
             user_prompt = f"""
-Search your database and knowledge base to fetch a list of 5-8 real-world, highly relevant active job roles for a candidate with the following details:
+Search your database and knowledge base to fetch a list of 5-8 real-world, highly relevant active job roles for a candidate with the following details. The candidate may have an IT/tech or non-tech background, depending on their target roles and skills:
 - Search Keywords: {keywords}
-- Preferred Location: {location_pref}
+- Preferred Location: {location_pref} (Focus heavily on Kerala, India region if default or remote)
 - Candidate Skills: {", ".join(profile_skills)}
 - Target Roles: {", ".join(profile_roles)}
 - Experience Level: {experience_level}
@@ -592,13 +598,13 @@ CRITICAL: Do NOT return any of the following jobs, as the candidate has already 
 You MUST return a JSON list of job objects. Each object MUST have this schema:
 [
   {{
-    "title": "Job Title (e.g., Junior React Developer)",
-    "company": "Company Name (use real technology companies active in India/Kochi/Trivandrum/Remote, different from existing ones)",
-    "location": "Location (e.g. Kochi, Kerala, India)",
+    "title": "Job Title (matching candidate's target roles and field)",
+    "company": "Company Name (use real active companies active in India/Kochi/Trivandrum/Remote matching the candidate's sector, different from existing ones)",
+    "location": "Location (e.g. Kochi, Kerala, India or Remote)",
     "salary": "Salary (transparency is key, e.g. ₹4.5 LPA - ₹6.0 LPA or $80,000 - $100,000)",
-    "description": "A detailed job description specifying responsibilities, tech stack, and evaluation style. Make it realistic and detailed (at least 3-4 sentences).",
+    "description": "A detailed job description specifying responsibilities, skills, and evaluation style. Make it realistic and detailed (at least 3-4 sentences).",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, https://keyvalue.systems/careers, https://accubits.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company, not a fake/simulated Greenhouse/Lever URL."
+    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company."
   }}
 ]
 
@@ -647,13 +653,26 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
         ]
         for idx, role in enumerate(fallback_roles):
             comp_info = real_companies[idx % len(real_companies)]
+            
+            # Detect if tech or non-tech role
+            is_tech = any(w in role.lower() for w in ["developer", "engineer", "programmer", "architect", "tech", "qa", "devops", "software", "sysadmin", "data scientist", "coder"])
+            
+            if is_tech:
+                title = f"Associate {role}" if "associate" not in role.lower() else role
+                desc = f"{comp_info['name']} is seeking an {title} to join our growing engineering department. This is a project-focused role where candidates will build and scale web services. Evaluation is strictly portfolio and task-oriented, no whiteboard DSA."
+                skills = profile_skills[:3] if profile_skills else ["Python", "React", "JavaScript"]
+            else:
+                title = role
+                desc = f"{comp_info['name']} is looking for a qualified {title} to support our business operations and growth. We are looking for candidates with strong communication, teamwork, and domain expertise. Evaluation is based on past experience, interview, and situational task."
+                skills = profile_skills[:3] if profile_skills else ["Excel", "Communication", "Management"]
+                
             fallback_pool.append({
-                "title": f"Associate {role} Developer",
+                "title": title,
                 "company": comp_info["name"],
                 "location": f"{location_pref} (Hybrid)",
                 "salary": "₹3.8 LPA - ₹5.5 LPA",
-                "description": f"{comp_info['name']} is seeking an Associate {role} Developer to join our growing engineering department. This is a project-focused role where candidates will build and scale web services. Evaluation is strictly portfolio and task-oriented, no whiteboard DSA.",
-                "skills_required": profile_skills[:3] if profile_skills else ["Python", "React", "JavaScript"],
+                "description": desc,
+                "skills_required": skills,
                 "url": comp_info["url"]
             })
         

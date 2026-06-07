@@ -14,12 +14,11 @@ const OnboardingWizard = ({ onClose }) => {
 
   const [activeStep, setActiveStep] = useState("choice"); // choice, form, upload
   
-  // Form fields state
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [experience, setExperience] = useState("Fresher");
-  const [region, setRegion] = useState("Kerala");
-  const [workMode, setWorkMode] = useState("Remote");
+  const [region, setRegion] = useState("Kerala, India");
+  const [workMode, setWorkMode] = useState("Any");
   const [aiInstructions, setAiInstructions] = useState("");
 
   const handleFormSubmit = async (e) => {
@@ -208,7 +207,7 @@ const OnboardingWizard = ({ onClose }) => {
                     type="text"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    placeholder="e.g. React Developer"
+                    placeholder="e.g. Sales Executive or React Developer"
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none"
                   />
                 </div>

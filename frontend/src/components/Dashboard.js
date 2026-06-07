@@ -57,6 +57,12 @@ const Dashboard = () => {
   const [currentStartupPage, setCurrentStartupPage] = useState(1);
   const startupsPerPage = 3;
 
+  // Search states for Indeed-style search bar
+  const [searchQueryInput, setSearchQueryInput] = useState("");
+  const [searchLocationInput, setSearchLocationInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
+
   useEffect(() => {
     fetchJobs();
     fetchStartups();
@@ -66,7 +72,7 @@ const Dashboard = () => {
     fetchFilterOptions();
   }, [fetchJobs, fetchStartups, fetchMetrics, fetchQueue, fetchValidationReport, fetchFilterOptions]);
 
-  // Set default selected job
+  // Set default selected job with Indeed search criteria
   const filteredJobs = jobs.filter(job => {
     const scamMatch = hideScams ? !job.is_scam : true;
     let statusMatch = true;
@@ -77,8 +83,87 @@ const Dashboard = () => {
     } else if (activeFilterStatus === "Queue") {
       statusMatch = ["Applied", "Interviewing", "Ghosted", "Rejected", "Offered"].includes(job.status);
     }
-    return scamMatch && statusMatch;
+
+    // Search query matching (Indeed behavior)
+    let queryMatch = true;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const titleMatch = job.title?.toLowerCase().includes(q);
+      const companyMatch = job.company?.toLowerCase().includes(q);
+      const descMatch = job.description?.toLowerCase().includes(q);
+      const skillMatch = job.skills_required?.some(s => s.toLowerCase().includes(q));
+      queryMatch = titleMatch || companyMatch || descMatch || skillMatch;
+    }
+
+    let locationMatch = true;
+    if (searchLocation.trim()) {
+      const loc = searchLocation.toLowerCase();
+      locationMatch = job.location?.toLowerCase().includes(loc);
+    }
+
+    return scamMatch && statusMatch && queryMatch && locationMatch;
   });
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setSearchQuery(searchQueryInput);
+    setSearchLocation(searchLocationInput);
+    
+    if (searchQueryInput.trim() || searchLocationInput.trim()) {
+      handleSearchScrape(searchQueryInput, searchLocationInput);
+    }
+  };
+
+  const handleSearchScrape = async (keywords, location) => {
+    Swal.fire({
+      title: "Searching Online",
+      text: `Fetching and analyzing jobs for "${keywords}" in "${location || 'Remote'}"...`,
+      icon: "info",
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      background: "#0f172a",
+      color: "#fff",
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      const success = await scrapeMoreJobs(keywords, location);
+      Swal.close();
+      if (success) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `Found new jobs for "${keywords}"!`,
+          showConfirmButton: false,
+          timer: 3000,
+          background: "#0f172a",
+          color: "#fff"
+        });
+      } else {
+        Swal.fire({
+          title: "Search Completed",
+          text: "No new matching jobs were discovered online. Check your API settings or try again.",
+          icon: "info",
+          background: "#0f172a",
+          color: "#fff",
+          confirmButtonColor: "#06b6d4"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.close();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQueryInput("");
+    setSearchLocationInput("");
+    setSearchQuery("");
+    setSearchLocation("");
+  };
 
   useEffect(() => {
     if (filteredJobs.length > 0) {
@@ -93,7 +178,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilterStatus, hideScams]);
+  }, [activeFilterStatus, hideScams, searchQuery, searchLocation]);
 
   const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
 
@@ -160,7 +245,7 @@ const Dashboard = () => {
 
   const handleLoadMore = async () => {
     try {
-      const success = await scrapeMoreJobs();
+      const success = await scrapeMoreJobs(searchQuery, searchLocation);
       if (success) {
         Swal.fire({
           toast: true,
@@ -297,10 +382,86 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row bg-slate-950 overflow-hidden" style={{ height: "calc(100vh - 73px)" }}>
+    <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden" style={{ height: "calc(100vh - 73px)" }}>
 
-      {/* LEFT PANE: JOBS LIST (3/12 width) */}
-      <div className="w-full lg:w-3/12 border-r border-slate-800 flex flex-col bg-slate-900/40">
+      {/* INDEED-STYLE SEARCH BAR HEADER */}
+      <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col md:flex-row gap-4 items-center justify-center shadow-lg shadow-slate-950/40 relative z-10">
+        <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center w-full max-w-4xl bg-slate-950/80 border border-slate-800/80 rounded-xl overflow-hidden shadow-inner p-1 gap-1.5 md:gap-0">
+          
+          {/* WHAT INPUT */}
+          <div className="flex items-center flex-1 w-full px-3 py-2 border-b md:border-b-0 md:border-r border-slate-800/80 gap-2">
+            <FaSearch className="text-slate-400 text-sm flex-shrink-0" />
+            <div className="flex-1">
+              <label className="text-[8px] font-black uppercase text-slate-500 block leading-none mb-0.5">What</label>
+              <input
+                type="text"
+                placeholder="Job title, keywords, or company"
+                value={searchQueryInput}
+                onChange={(e) => setSearchQueryInput(e.target.value)}
+                className="w-full bg-transparent text-sm text-slate-200 placeholder-slate-600 focus:outline-none font-medium"
+              />
+            </div>
+            {searchQueryInput && (
+              <button 
+                type="button" 
+                onClick={() => setSearchQueryInput("")}
+                className="text-slate-500 hover:text-slate-300 text-xs font-bold px-1"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* WHERE INPUT */}
+          <div className="flex items-center flex-1 w-full px-3 py-2 gap-2">
+            <FaMapMarkerAlt className="text-slate-400 text-sm flex-shrink-0" />
+            <div className="flex-1">
+              <label className="text-[8px] font-black uppercase text-slate-500 block leading-none mb-0.5">Where</label>
+              <input
+                type="text"
+                placeholder="City, state, or 'Remote'"
+                value={searchLocationInput}
+                onChange={(e) => setSearchLocationInput(e.target.value)}
+                className="w-full bg-transparent text-sm text-slate-200 placeholder-slate-600 focus:outline-none font-medium"
+              />
+            </div>
+            {searchLocationInput && (
+              <button 
+                type="button" 
+                onClick={() => setSearchLocationInput("")}
+                className="text-slate-500 hover:text-slate-300 text-xs font-bold px-1"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* FIND JOBS BUTTON */}
+          <button
+            type="submit"
+            className="w-full md:w-auto px-6 py-3 md:py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-black font-black rounded-lg text-xs tracking-wider uppercase flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/10 active:scale-95 transition-all flex-shrink-0"
+          >
+            Find Jobs
+          </button>
+        </form>
+
+        {/* Clear search states */}
+        {(searchQuery || searchLocation) && (
+          <button
+            type="button"
+            onClick={handleClearSearch}
+            className="text-xs text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider transition-colors px-3 py-2 rounded-lg border border-rose-900/40 bg-rose-950/15"
+          >
+            Clear Search
+          </button>
+        )}
+      </div>
+
+      {/* THREE PANE LAYOUT */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        {/* LEFT PANE: JOBS LIST (3/12 width) */}
+        <div className="w-full lg:w-3/12 border-r border-slate-800 flex flex-col bg-slate-900/40">
 
         {/* FILTER TOOLBAR */}
         <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex flex-col gap-3">
@@ -1134,6 +1295,8 @@ const Dashboard = () => {
             </>
           )}
         </div>
+      </div>
+
       </div>
 
       {/* ATS PREPARATION & APPLICATION HELPER MODAL */}

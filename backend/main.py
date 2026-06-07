@@ -51,14 +51,14 @@ current_profile = UserProfile(
     name="",
     email="",
     phone="",
-    location="Remote",
+    location="Kerala, India",
     target_roles=[],
     skills=[],
     salary_expectation=0,
     base_resume="",
     experience_level="Fresher",
-    preferred_work_mode="Remote",
-    region="Kerala",
+    preferred_work_mode="Any",
+    region="Kerala, India",
     ai_instructions=""
 )
 
@@ -243,7 +243,11 @@ async def get_jobs():
     return await get_all_jobs()
 
 @app.post("/api/jobs/scrape-more")
-async def scrape_more_jobs_endpoint():
+async def scrape_more_jobs_endpoint(payload: dict = None):
+    payload = payload or {}
+    keywords = payload.get("keywords")
+    location = payload.get("location")
+
     pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
     
     global jobs_db
@@ -253,7 +257,13 @@ async def scrape_more_jobs_endpoint():
     
     from job_scraper import scrape_more_jobs
     
-    new_jobs = await scrape_more_jobs(current_profile, existing_jobs, pipeline.get("nodes", []))
+    new_jobs = await scrape_more_jobs(
+        current_profile, 
+        existing_jobs, 
+        pipeline.get("nodes", []),
+        override_keywords=keywords,
+        override_location=location
+    )
     
     for job in new_jobs:
         if not any(j["id"] == job.id for j in jobs_db):
@@ -840,11 +850,11 @@ async def scrape_more_startups_endpoint():
         try:
             system_prompt = "You are a professional Job Discovery Scraper Agent specializing in Startups."
             user_prompt = f"""
-Search your database and knowledge base to fetch a list of 4-6 real-world, active technology startups hiring in India (especially Kochi/Trivandrum/Bangalore/Remote) matching the candidate's profile:
+Search your database and knowledge base to fetch a list of 4-6 real-world, active companies/startups hiring in India (especially Kochi/Trivandrum/Bangalore/Remote) matching the candidate's profile and industry sector:
 - Candidate Skills: {", ".join(profile_skills)}
 - Target Roles: {", ".join(profile_roles)}
 - Experience Level: {experience_level}
-- Location Preference: {location_pref}
+- Location Preference: {location_pref} (Focus heavily on Kerala, India region if default or remote)
 
 CRITICAL: Do NOT return any of the following startups/roles that the candidate already has in their list:
 {existing_companies_str}
@@ -852,13 +862,13 @@ CRITICAL: Do NOT return any of the following startups/roles that the candidate a
 You MUST return a JSON list of startup hiring objects. Each object MUST have this schema:
 [
   {{
-    "title": "Hiring Job Title (e.g. Junior Web Developer, Full Stack Engineer)",
-    "company": "Company Name (use real technology startups active in India/Remote, e.g. UST Global, CareStack, Accubits, Riafy, SayOne, Entri, KeyValue, or others)",
+    "title": "Hiring Job Title (matching candidate's target roles and field)",
+    "company": "Company Name (use real companies/startups active in India/Remote matching the candidate's sector, e.g. UST Global, CareStack, Accubits, Riafy, SayOne, Entri, KeyValue, or others)",
     "location": "Location (e.g. Kochi, Kerala, India or Remote)",
     "salary": "Salary (e.g. ₹4.0 LPA - ₹6.0 LPA or $50,000 - $70,000)",
     "description": "A brief description of what the startup does and the hiring role details.",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "The direct official careers website URL of the company (e.g., https://companyname.com/careers or similar official company website). It MUST be a real, working website URL, not a simulated Greenhouse/Lever URL."
+    "url": "The direct official careers website URL of the company (e.g., https://companyname.com/careers or similar official company website). It MUST be a real, working website URL."
   }}
 ]
 
@@ -892,41 +902,47 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
             print(f"LLM Startup Scraper failed, falling back: {str(e)}")
 
     if not new_startups:
-        # Fallback local pool generation of new startups
-        fallback_startups = [
+        # Fallback local pool generation of new startups based on user's target roles
+        fallback_roles = profile_roles if profile_roles else ["Associate Project Lead", "Representative", "Consultant"]
+        fallback_startups_pool = [
             {
-                "title": "Junior QA Automation Engineer",
                 "company": "UST Global",
-                "location": "Trivandrum, Kerala (Hybrid)",
-                "salary": "₹4.0 LPA - ₹5.5 LPA",
-                "description": "UST is a global digital transformation company. Seeking junior QA engineers. Evaluated via a practical coding task.",
-                "skills_required": ["Selenium", "JavaScript", "Python"],
                 "url": "https://ust.com/careers"
             },
             {
-                "title": "Associate React Developer",
                 "company": "IBS Software",
-                "location": "Kochi, Kerala (Onsite)",
-                "salary": "₹3.8 LPA - ₹5.2 LPA",
-                "description": "IBS Software is a leading SaaS solutions provider to the travel industry. Hiring React Developers.",
-                "skills_required": ["React", "JavaScript", "HTML", "CSS"],
                 "url": "https://www.ibssoftware.com/careers"
             },
             {
-                "title": "Node.js Backend Developer",
                 "company": "Focaloid Technologies",
-                "location": "Kochi, Kerala (Remote/Hybrid)",
-                "salary": "₹4.5 LPA - ₹6.2 LPA",
-                "description": "Focaloid is a digital solutions company. Hiring backend developer with Node.js and MongoDB skills.",
-                "skills_required": ["Node.js", "Express.js", "MongoDB", "JavaScript"],
                 "url": "https://focaloid.com/careers"
             }
         ]
         
-        # Filter out existing ones
-        for item in fallback_startups:
-            if not any(s.get('company', '').lower() == item['company'].lower() for s in startups_data):
-                new_startups.append(item)
+        for idx, role in enumerate(fallback_roles[:3]):
+            comp_info = fallback_startups_pool[idx % len(fallback_startups_pool)]
+            
+            # Detect if tech or non-tech role
+            is_tech = any(w in role.lower() for w in ["developer", "engineer", "programmer", "architect", "tech", "qa", "devops", "software", "sysadmin", "data scientist", "coder"])
+            
+            if is_tech:
+                title = f"Junior {role}" if "junior" not in role.lower() else role
+                desc = f"{comp_info['company']} is seeking a {title}. Evaluated via a practical coding task."
+                skills = profile_skills[:3] if profile_skills else ["Selenium", "JavaScript", "Python"]
+            else:
+                title = role
+                desc = f"{comp_info['company']} is hiring a {title} to lead client relations and operational campaigns."
+                skills = profile_skills[:3] if profile_skills else ["Excel", "Communication", "Management"]
+                
+            new_startups.append({
+                "title": title,
+                "company": comp_info["company"],
+                "location": f"{location_pref} (Hybrid)",
+                "salary": "₹4.0 LPA - ₹6.0 LPA",
+                "description": desc,
+                "skills_required": skills,
+                "url": comp_info["url"]
+            })
 
     # Append to existing
     for item in new_startups:
@@ -1136,14 +1152,14 @@ async def reset_all_data():
         name="",
         email="",
         phone="",
-        location="Remote",
+        location="Kerala, India",
         target_roles=[],
         skills=[],
         salary_expectation=0,
         base_resume="",
         experience_level="Fresher",
-        preferred_work_mode="Remote",
-        region="Kerala",
+        preferred_work_mode="Any",
+        region="Kerala, India",
         ai_instructions=""
     )
     current_settings = AISettings()

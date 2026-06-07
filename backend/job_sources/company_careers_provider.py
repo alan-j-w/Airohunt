@@ -69,6 +69,60 @@ KERALA_STARTUPS_POOL = [
         "description": "Huddle is a remote-first startup. We hire MERN/React engineers. Hiring is 100% remote: we review your Github, look at your projects, and host a collaborative coding session where we add a feature together.",
         "skills_required": ["React", "JavaScript", "TypeScript", "Tailwind CSS"],
         "url": "https://wellfound.com"
+    },
+    {
+        "title": "Graphic Designer & UI Creator",
+        "company": "Riafy Technologies",
+        "location": "Kochi, Kerala (Hybrid)",
+        "salary": "₹3.5 LPA - ₹5.0 LPA",
+        "description": "Seeking a creative Graphic Designer to join our product UI team. You will create assets, mockups, social graphics, and interface layouts for our global AI applications. Candidates are evaluated via a small creative portfolio review.",
+        "skills_required": ["Figma", "UI/UX", "Adobe Photoshop", "Illustrator", "Creative Design"],
+        "url": "https://riafy.me"
+    },
+    {
+        "title": "Social Media & Marketing Specialist",
+        "company": "Entri.app",
+        "location": "Kochi, Kerala (Remote/Hybrid)",
+        "salary": "₹3.0 LPA - ₹4.5 LPA",
+        "description": "Entri is hiring a Social Media Specialist to coordinate digital marketing, manage content across platforms, run local ad campaigns, and engage our learning community. No IT background required; strong writing and marketing skills are essential.",
+        "skills_required": ["Marketing", "Social Media", "Content Writing", "SEO", "Communication"],
+        "url": "https://entri.app"
+    },
+    {
+        "title": "Human Resources & Operations Associate",
+        "company": "KeyValue Systems",
+        "location": "Kochi, Kerala (Onsite)",
+        "salary": "₹4.0 LPA - ₹5.5 LPA",
+        "description": "KeyValue is looking for an HR & Operations Associate. Responsibilities include employee onboarding, operational support, workplace management, and coordinating recruiter pipelines. Strong interpersonal skills are highly valued.",
+        "skills_required": ["HR", "Recruitment", "Operations", "Excel", "Communication"],
+        "url": "https://keyvalue.systems/careers"
+    },
+    {
+        "title": "Finance Executive & Accountant",
+        "company": "SayOne Technologies",
+        "location": "Kochi, Kerala (Onsite)",
+        "salary": "₹4.2 LPA - ₹6.0 LPA",
+        "description": "SayOne is seeking a Finance Executive. You will handle accounting, payroll, invoicing, vendor coordination, and tax compliance. Requires a degree in Finance/Commerce and knowledge of Tally/Excel.",
+        "skills_required": ["Accounting", "Finance", "Excel", "Tally", "Invoicing"],
+        "url": "https://sayonetech.com/careers"
+    },
+    {
+        "title": "English Content & Technical Writer",
+        "company": "Accubits Technologies",
+        "location": "Trivandrum, Kerala (Hybrid)",
+        "salary": "₹3.6 LPA - ₹5.2 LPA",
+        "description": "We are seeking a Content Writer to construct high-quality articles, documentation, marketing blogs, and copy. Work closely with product teams to draft descriptions and reports. A strong command of written English is mandatory.",
+        "skills_required": ["Content Writing", "Copywriting", "SEO", "English", "Communication"],
+        "url": "https://accubits.com/careers"
+    },
+    {
+        "title": "Sales & Business Development Representative",
+        "company": "CareStack Systems",
+        "location": "Trivandrum, Kerala (Hybrid)",
+        "salary": "₹4.0 LPA - ₹6.5 LPA",
+        "description": "CareStack is seeking a BDR to handle lead generation, client communication, sales demos, and partner pipeline development. Excellent communication and sales pitching are required. Training is provided.",
+        "skills_required": ["Sales", "Business Development", "Communication", "CRM", "Excel"],
+        "url": "https://carestack.com/careers"
     }
 ]
 
@@ -93,9 +147,9 @@ class CompanyCareersJobProvider(BaseJobProvider):
                         
                 system_prompt = "You are a professional Job Discovery Scraper Agent."
                 user_prompt = f"""
-Search your database and knowledge base to fetch a list of 5-8 real-world, highly relevant active job roles for a candidate with the following details:
+Search your database and knowledge base to fetch a list of 5-8 real-world, highly relevant active job roles for a candidate with the following details. The candidate may have an IT/tech or non-tech background, depending on their target roles and skills:
 - Search Keywords: {keywords}
-- Preferred Location: {location}
+- Preferred Location: {location} (Focus heavily on Kerala, India region if default or remote)
 - Candidate Skills: {", ".join(profile_skills)}
 - Target Roles: {", ".join(profile_roles)}
 - Experience Level: {experience_level}
@@ -103,13 +157,13 @@ Search your database and knowledge base to fetch a list of 5-8 real-world, highl
 You MUST return a JSON list of job objects. Each object MUST have this schema:
 [
   {{
-    "title": "Job Title (e.g., Junior React Developer)",
-    "company": "Company Name (use real technology companies active in India/Kochi/Trivandrum/Remote, like Riafy, SayOne, CareStack, Accubits, KeyValue, Entri, or other active global tech startups)",
-    "location": "Location (e.g. Kochi, Kerala, India)",
+    "title": "Job Title (matching candidate's target roles and field)",
+    "company": "Company Name (use real active companies active in India/Kochi/Trivandrum/Remote matching the candidate's sector, e.g., Riafy, SayOne, CareStack, Accubits, KeyValue, Entri, or others)",
+    "location": "Location (e.g. Kochi, Kerala, India or Remote)",
     "salary": "Salary (transparency is key, e.g. ₹4.5 LPA - ₹6.0 LPA or $80,000 - $100,000)",
-    "description": "A detailed job description specifying responsibilities, target skills, tech stack, and evaluation style (e.g. project-based vs whiteboarding). Make it realistic and detailed (at least 3-4 sentences).",
+    "description": "A detailed job description specifying responsibilities, skills, and evaluation style. Make it realistic and detailed (at least 3-4 sentences).",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, https://keyvalue.systems/careers, https://accubits.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company, not a fake/simulated Greenhouse/Lever URL."
+    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company."
   }}
 ]
 

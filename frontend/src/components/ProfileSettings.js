@@ -16,7 +16,7 @@ import {
 import Swal from "sweetalert2";
 
 const ProfileSettings = () => {
-  const { profile, saveProfile, uploadResume, resumes, saveResumes, fetchResumes, isLoading, errorMessage } = useStore();
+  const { profile, saveProfile, uploadResume, resumes, saveResumes, isLoading, errorMessage } = useStore();
 
   const [name, setName] = useState(profile.name || "");
   const [email, setEmail] = useState(profile.email || "");
