@@ -17,6 +17,7 @@ from ai.provider_manager import ProviderManager
 from ai.strict_job_validator import StrictJobValidationEngine, deduplicate_jobs, update_validation_stats
 from constants import TECH_MATCH_WEIGHT, PREFERENCE_MATCH_WEIGHT, TRUST_SCORE_WEIGHT, OPPORTUNITY_SCORE_WEIGHT
 import shutil
+from utils import load_json_file, save_json_file
 
 
 SETTINGS_FILE = "settings.json"
@@ -97,23 +98,11 @@ def _load_pairwise_stats() -> dict:
         "resume_source": {},        # (resume, source) -> {"applied": X, "success": Y}
         "resume_location": {},      # (resume, location) -> {"applied": X, "success": Y}
     }
-    queue = {
+    default_queue = {
         "applications": {},
         "audit_logs": []
     }
-    if os.path.exists("application_queue.json"):
-        try:
-            with open("application_queue.json", "r", encoding="utf-8") as f:
-                queue = json.load(f)
-        except Exception as e:
-            print(f"JSON Corruption detected in load: {str(e)}")
-            try:
-                backup_name = "application_queue.json.corrupted"
-                shutil.copy("application_queue.json", backup_name)
-                print(f"Backed up corrupted queue to {backup_name}")
-                os.remove("application_queue.json")
-            except Exception as copy_err:
-                print(f"Failed to backup corrupted queue file: {str(copy_err)}")
+    queue = load_json_file("application_queue.json", default_queue)
 
     applications = queue.get("applications", {})
     for app in applications.values():
@@ -163,12 +152,8 @@ def _load_pairwise_stats() -> dict:
 async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = None) -> List[Job]:
     # Load pipeline nodes from file if not supplied (for background/direct callers)
     if pipeline_nodes is None:
-        try:
-            with open("pipeline.json", "r") as f:
-                pipeline_data = json.load(f)
-                pipeline_nodes = pipeline_data.get("nodes", [])
-        except Exception:
-            pipeline_nodes = []
+        pipeline_data = load_json_file("pipeline.json", {"nodes": [], "edges": []})
+        pipeline_nodes = pipeline_data.get("nodes", [])
 
     # 0. Extract Canvas configurations from nodes
     min_match_percent = 0.0
@@ -485,12 +470,8 @@ async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = 
 
 async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipeline_nodes: List[dict] = None, override_keywords: str = None, override_location: str = None) -> List[Job]:
     if pipeline_nodes is None:
-        try:
-            with open("pipeline.json", "r") as f:
-                pipeline_data = json.load(f)
-                pipeline_nodes = pipeline_data.get("nodes", [])
-        except Exception:
-            pipeline_nodes = []
+        pipeline_data = load_json_file("pipeline.json", {"nodes": [], "edges": []})
+        pipeline_nodes = pipeline_data.get("nodes", [])
 
     # 0. Extract Canvas configurations from nodes
     min_match_percent = 0.0

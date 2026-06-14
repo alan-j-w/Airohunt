@@ -2,10 +2,26 @@ import os
 import re
 from typing import Tuple
 
+# Set of technical skills that might contain punctuation or have short lengths
+SPECIALIZED_SKILLS = {
+    "c++", "c#", ".net", "node.js", "express.js", "react.js", "vue.js", "angular.js",
+    "ui/ux", "html5", "css3", "next.js", "nuxt.js", "git", "aws", "gcp", "sql", "xml", "go",
+    "c", "r", "d3.js", "three.js", "dsa", "rest", "api", "apis"
+}
+
 def calculate_keyword_overlap(resume_text: str, job_desc: str) -> Tuple[float, list]:
     # Extract words from both texts
     def get_words(text: str):
-        return set(re.findall(r'\b[a-zA-Z]{3,15}\b', text.lower()))
+        text_lower = text.lower()
+        words = re.findall(r'\b[a-zA-Z]{3,15}\b', text_lower)
+        
+        # Add specialized skills if they are present in the text
+        for skill in SPECIALIZED_SKILLS:
+            pattern = r'(?:\b|(?<=\W))' + re.escape(skill) + r'(?:\b|(?=\W))'
+            if re.search(pattern, text_lower):
+                words.append(skill)
+                
+        return set(words)
         
     resume_words = get_words(resume_text)
     job_words = get_words(job_desc)

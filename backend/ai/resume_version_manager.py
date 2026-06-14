@@ -1,7 +1,7 @@
 import os
-import json
 import re
 from typing import Dict, Any, Tuple
+from utils import load_json_file, save_json_file
 
 RESUME_PROFILES_FILE = "resume_profiles.json"
 
@@ -35,19 +35,13 @@ class ResumeVersionManager:
 
     def _initialize_profiles(self):
         if not os.path.exists(self.profiles_path):
-            with open(self.profiles_path, "w") as f:
-                json.dump(DEFAULT_TEMPLATES, f, indent=4)
+            save_json_file(self.profiles_path, DEFAULT_TEMPLATES)
 
     def load_profiles(self) -> Dict[str, Any]:
-        try:
-            with open(self.profiles_path, "r") as f:
-                return json.load(f)
-        except Exception:
-            return DEFAULT_TEMPLATES
+        return load_json_file(self.profiles_path, DEFAULT_TEMPLATES)
 
     def save_profiles(self, data: Dict[str, Any]):
-        with open(self.profiles_path, "w") as f:
-            json.dump(data, f, indent=4)
+        save_json_file(self.profiles_path, data)
 
     def select_best_resume(self, job_title: str, job_description: str, job_skills: list) -> Tuple[str, str]:
         """

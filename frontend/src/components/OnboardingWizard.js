@@ -2,10 +2,13 @@ import React, { useState } from "react";
 import { useStore } from "../store";
 import { 
   FaUser, 
+  FaEnvelope, 
+  FaPhone, 
   FaMapMarkerAlt, 
   FaBriefcase, 
   FaCloudUploadAlt, 
-  FaArrowRight
+  FaArrowRight,
+  FaDollarSign
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 
@@ -15,10 +18,13 @@ const OnboardingWizard = ({ onClose }) => {
   const [activeStep, setActiveStep] = useState("choice"); // choice, form, upload
   
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
   const [experience, setExperience] = useState("Fresher");
   const [region, setRegion] = useState("Kerala, India");
   const [workMode, setWorkMode] = useState("Any");
+  const [salary, setSalary] = useState(0);
   const [aiInstructions, setAiInstructions] = useState("");
 
   const handleFormSubmit = async (e) => {
@@ -34,12 +40,12 @@ const OnboardingWizard = ({ onClose }) => {
 
     const initialProfile = {
       name,
-      email: "",
-      phone: "",
+      email,
+      phone,
       location: workMode === "Remote" ? "Remote" : region,
       target_roles: [role.trim()],
       skills: ["Git"], // base default
-      salary_expectation: 0,
+      salary_expectation: Number(salary),
       base_resume: "",
       experience_level: experience,
       preferred_work_mode: workMode,
@@ -200,6 +206,34 @@ const OnboardingWizard = ({ onClose }) => {
               </div>
 
               <div>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider block mb-1">Email Address</label>
+                <div className="relative">
+                  <FaEnvelope className="absolute left-3 top-3.5 text-slate-500 text-xs" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="jane@example.com"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider block mb-1">Phone Number</label>
+                <div className="relative">
+                  <FaPhone className="absolute left-3 top-3.5 text-slate-500 text-xs" />
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="123-456-7890"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider block mb-1">Target Job Role</label>
                 <div className="relative">
                   <FaBriefcase className="absolute left-3 top-3.5 text-slate-500 text-xs" />
@@ -234,6 +268,20 @@ const OnboardingWizard = ({ onClose }) => {
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
                     placeholder="e.g. Kerala, India"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider block mb-1">Minimum Annual Salary Expectation ($)</label>
+                <div className="relative">
+                  <FaDollarSign className="absolute left-3 top-3.5 text-slate-500 text-xs" />
+                  <input
+                    type="number"
+                    value={salary}
+                    onChange={(e) => setSalary(e.target.value)}
+                    placeholder="65000"
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none"
                   />
                 </div>

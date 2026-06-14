@@ -1,10 +1,10 @@
 import os
-import json
 import re
 import uuid
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
 from models import Job, UserProfile
+from utils import load_json_file, save_json_file
 
 # Filenames for local persistence
 BLACKLIST_FILE = "company_blacklist.json"
@@ -17,42 +17,55 @@ class StrictJobValidationEngine:
         self.blacklist = self._load_blacklist()
 
     def _load_blacklist(self) -> List[str]:
-        if os.path.exists(BLACKLIST_FILE):
-            try:
-                with open(BLACKLIST_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        return [item.lower().strip() for item in data]
-            except Exception as e:
-                print(f"Error loading blacklist file: {e}")
-        # Default fallback list
-        return [
+        defaults = [
             "luminar", "brototype", "novotech", "suntech", 
             "placement india", "placement agency", "placement consultancy", 
             "recruitment agency", "job consulting", "career institute", 
             "training academy", "training institute", "course sellers", 
             "pay-to-join", "novosoft"
         ]
+        data = load_json_file(BLACKLIST_FILE, defaults)
+        if isinstance(data, list):
+            return [item.lower().strip() for item in data]
+        return [item.lower().strip() for item in defaults]
 
     def _parse_experience(self, job: Job) -> int:
         """Parses minimum years of experience required from title and description."""
         text = f"{job.title} {job.description}".lower()
         
-        # Look for patterns like "2-3 years", "5+ years", "1 year", "experience: 3 years"
-        # 1. Look for range e.g. "2-3 years" -> min is 2
-        range_match = re.search(r'\b(\d+)\s*(?:to|-)\s*(\d+)\s*years?\b', text)
-        if range_match:
-            return int(range_match.group(1))
+        # Helper to check if a match is likely a false positive company age/history statement
+        def is_false_positive(match_start: int, match_end: int) -> bool:
+            start_window = max(0, match_start - 50)
+            end_window = min(len(text), match_end + 50)
+            window_text = text[start_window:end_window]
+            history_indicators = [
+                "years of history", "years in business", "years old", 
+                "established", "founded", "company has", "track record of",
+                "presence", "history in", "operating for"
+            ]
+            return any(ind in window_text for ind in history_indicators)
             
-        # 2. Look for "+ years" e.g. "5+ years" -> 5
-        plus_match = re.search(r'\b(\d+)\s*\+?\s*years?\b', text)
-        if plus_match:
-            return int(plus_match.group(1))
+        # 1. Look for range e.g. "2-3 years" -> min is 2
+        for match in re.finditer(r'\b(\d+)\s*(?:to|-)\s*(\d+)\s*years?\s*(?:of\s*)?experience\b|\b(\d+)\s*(?:to|-)\s*(\d+)\s*years?\b', text):
+            if not is_false_positive(match.start(), match.end()):
+                val = match.group(1) or match.group(3)
+                return int(val)
+                
+        # 2. Look for "year(s) of experience" e.g. "1 year of experience"
+        for match in re.finditer(r'\b(\d+)\s*years?\s*of\s*experience\b|\bexperience\s*:\s*(\d+)\s*years?\b|\brequired\s*experience\s*:\s*(\d+)\b', text):
+            if not is_false_positive(match.start(), match.end()):
+                val = match.group(1) or match.group(2) or match.group(3)
+                return int(val)
 
-        # 3. Look for "year(s) of experience" e.g. "1 year of experience" -> 1
-        of_exp_match = re.search(r'\b(\d+)\s*years?\s*of\s*experience\b', text)
-        if of_exp_match:
-            return int(of_exp_match.group(1))
+        # 3. Look for "+ years" e.g. "5+ years"
+        for match in re.finditer(r'\b(\d+)\s*\+?\s*years?\b', text):
+            if not is_false_positive(match.start(), match.end()):
+                start_w = max(0, match.start() - 30)
+                end_w = min(len(text), match.end() + 30)
+                sub_context = text[start_w:end_w]
+                requirement_words = ["require", "need", "minimum", "at least", "experience", "work", "seeking", "looking for"]
+                if any(w in sub_context for w in requirement_words):
+                    return int(match.group(1))
 
         # 4. Check keywords indicating entry-level
         if any(kw in text for kw in ["fresher", "entry-level", "intern", "junior developer", "junior engineer"]):
@@ -530,13 +543,7 @@ def update_validation_stats(all_collected: List[Job], active_jobs: List[Job], du
         "rejection_categories": {}
     }
     
-    current_stats = default_stats
-    if os.path.exists(STATS_FILE):
-        try:
-            with open(STATS_FILE, "r", encoding="utf-8") as f:
-                current_stats = json.load(f)
-        except Exception:
-            pass
+    current_stats = load_json_file(STATS_FILE, default_stats)
             
     # Add new counts
     current_stats["jobs_collected"] += len(all_collected) + duplicates_removed
@@ -557,8 +564,7 @@ def update_validation_stats(all_collected: List[Job], active_jobs: List[Job], du
     sorted_rejections = sorted(rej_cats.items(), key=lambda x: x[1], reverse=True)
     current_stats["top_failure_reasons"] = [{"reason": r, "count": c} for r, c in sorted_rejections[:5]]
     
-    with open(STATS_FILE, "w", encoding="utf-8") as f:
-        json.dump(current_stats, f, indent=4)
+    save_json_file(STATS_FILE, current_stats)
         
     # Append to History
     history_entry = {
@@ -575,16 +581,9 @@ def update_validation_stats(all_collected: List[Job], active_jobs: List[Job], du
         "experience_rejected": rejections_count.get("Experience Too High", 0)
     }
     
-    history_list = []
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                history_list = json.load(f)
-                if not isinstance(history_list, list):
-                    history_list = []
-        except Exception:
-            pass
+    history_list = load_json_file(HISTORY_FILE, [])
+    if not isinstance(history_list, list):
+        history_list = []
             
     history_list.append(history_entry)
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history_list, f, indent=4)
+    save_json_file(HISTORY_FILE, history_list)

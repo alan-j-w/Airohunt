@@ -2,6 +2,8 @@ import os
 import re
 import json
 import shutil
+import tempfile
+import threading
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
@@ -62,26 +64,7 @@ current_profile = UserProfile(
     ai_instructions=""
 )
 
-# Initialize storage files if they don't exist
-def load_json_file(filename, default):
-    if os.path.exists(filename):
-        try:
-            with open(filename, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"JSON Corruption detected in {filename}: {str(e)}")
-            try:
-                backup_name = f"{filename}.corrupted"
-                shutil.copy(filename, backup_name)
-                print(f"Backed up corrupted file to {backup_name}")
-                os.remove(filename)
-            except Exception as copy_err:
-                print(f"Failed to backup corrupted file {filename}: {str(copy_err)}")
-    return default
-
-def save_json_file(filename, data):
-    with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
+from utils import load_json_file, save_json_file
 
 # Load profile on startup
 profile_data = load_json_file(PROFILE_FILE, current_profile.dict())
@@ -91,13 +74,6 @@ current_profile = UserProfile(**profile_data)
 current_settings = AISettings()
 settings_data = load_json_file(SETTINGS_FILE, current_settings.dict())
 current_settings = AISettings(**settings_data)
-
-# Sync loaded settings to process environment variables immediately on startup
-os.environ["AI_PROVIDER"] = current_settings.active_provider
-os.environ["OPENAI_API_KEY"] = current_settings.openai_api_key
-os.environ["GROQ_API_KEY"] = current_settings.groq_api_key
-os.environ["GEMINI_API_KEY"] = current_settings.gemini_api_key
-os.environ["OLLAMA_URL"] = current_settings.ollama_url
 
 # Load jobs store
 jobs_db = load_json_file(JOBS_STORE_FILE, [])
@@ -175,15 +151,21 @@ async def upload_resume(file: UploadFile = File(...)):
                 reader = PyPDF2.PdfReader(temp_path)
                 extracted_text = "\n".join([page.extract_text() for page in reader.pages])
             except Exception:
-                extracted_text = f"[Resume File Name: {file.filename}]\n\nWarning: Please install 'pypdf' library in python environment to enable automatic PDF parsing. Running in fallback mode."
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                raise HTTPException(status_code=400, detail="PDF parser dependencies ('pypdf' or 'PyPDF2') are missing in the Python environment. Please run 'pip install pypdf' or manually copy and paste your resume text in settings.")
         except Exception as e:
-            extracted_text = f"Error reading PDF: {str(e)}"
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise HTTPException(status_code=400, detail=f"Error reading PDF: {str(e)}")
     else:
         try:
             with open(temp_path, "r", encoding="utf-8") as f:
                 extracted_text = f.read()
         except Exception as e:
-            extracted_text = f"Error reading text file: {str(e)}"
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise HTTPException(status_code=400, detail=f"Error reading text file: {str(e)}")
             
     if os.path.exists(temp_path):
         os.remove(temp_path)
@@ -210,33 +192,64 @@ async def upload_resume(file: UploadFile = File(...)):
 
 
 async def get_all_jobs() -> List[Job]:
-    pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
-    jobs_list = await generate_jobs_list(current_profile, pipeline.get("nodes", []))
-    
     global jobs_db
     jobs_db = load_json_file(JOBS_STORE_FILE, [])
     
-    jobs_list_dict = {j.id: j for j in jobs_list}
+    cache_meta = load_json_file("cache_metadata.json", {})
+    last_scraped_str = cache_meta.get("last_scraped", "")
     
-    for db_job_dict in jobs_db:
-        jid = db_job_dict.get("id")
-        if not jid:
-            continue
-        if jid in jobs_list_dict:
-            jobs_list_dict[jid].status = db_job_dict.get("status", "Matched")
-            jobs_list_dict[jid].tailored_resume = db_job_dict.get("tailored_resume", "")
-            if "posted_at" in db_job_dict:
-                jobs_list_dict[jid].posted_at = db_job_dict["posted_at"]
-        else:
+    needs_scrape = False
+    if not jobs_db:
+        needs_scrape = True
+    elif last_scraped_str:
+        try:
+            last_scraped = datetime.fromisoformat(last_scraped_str)
+            if (datetime.now() - last_scraped).total_seconds() > 3600:
+                needs_scrape = True
+        except Exception:
+            needs_scrape = True
+    else:
+        needs_scrape = True
+        
+    if needs_scrape:
+        print("Cache expired or empty. Scraping live jobs...")
+        pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
+        jobs_list = await generate_jobs_list(current_profile, pipeline.get("nodes", []))
+        
+        jobs_list_dict = {j.id: j for j in jobs_list}
+        for db_job_dict in jobs_db:
+            jid = db_job_dict.get("id")
+            if not jid:
+                continue
+            if jid in jobs_list_dict:
+                jobs_list_dict[jid].status = db_job_dict.get("status", "Matched")
+                jobs_list_dict[jid].tailored_resume = db_job_dict.get("tailored_resume", "")
+                if "posted_at" in db_job_dict:
+                    jobs_list_dict[jid].posted_at = db_job_dict["posted_at"]
+            else:
+                try:
+                    extra_job = Job(**db_job_dict)
+                    jobs_list_dict[jid] = extra_job
+                except Exception as e:
+                    print(f"Error parsing job from db: {e}")
+                    
+        final_list = list(jobs_list_dict.values())
+        final_list.sort(key=lambda x: x.match_score, reverse=True)
+        
+        # Save cache
+        jobs_db = [j.dict() for j in final_list]
+        save_json_file(JOBS_STORE_FILE, jobs_db)
+        save_json_file("cache_metadata.json", {"last_scraped": datetime.now().isoformat()})
+        return final_list
+    else:
+        parsed_list = []
+        for db_job_dict in jobs_db:
             try:
-                extra_job = Job(**db_job_dict)
-                jobs_list_dict[jid] = extra_job
+                parsed_list.append(Job(**db_job_dict))
             except Exception as e:
                 print(f"Error parsing job from db: {e}")
-                
-    final_list = list(jobs_list_dict.values())
-    final_list.sort(key=lambda x: x.match_score, reverse=True)
-    return final_list
+        parsed_list.sort(key=lambda x: x.match_score, reverse=True)
+        return parsed_list
 
 @app.get("/api/jobs")
 async def get_jobs():
@@ -270,8 +283,9 @@ async def scrape_more_jobs_endpoint(payload: dict = None):
             jobs_db.append(job.dict())
             
     save_json_file(JOBS_STORE_FILE, jobs_db)
+    save_json_file("cache_metadata.json", {"last_scraped": datetime.now().isoformat()})
     
-    return await get_jobs()
+    return await get_all_jobs()
 
 @app.post("/api/jobs/update-status")
 async def update_job_status(data: dict):
@@ -458,13 +472,6 @@ async def save_settings(settings: AISettings):
     global current_settings
     current_settings = settings
     save_json_file(SETTINGS_FILE, current_settings.dict())
-    
-    # Refresh settings in environment or in active clients
-    os.environ["AI_PROVIDER"] = settings.active_provider
-    os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-    os.environ["GROQ_API_KEY"] = settings.groq_api_key
-    os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
-    os.environ["OLLAMA_URL"] = settings.ollama_url
     
     return {"status": "success", "settings": current_settings}
 
@@ -1137,7 +1144,8 @@ async def reset_all_data():
         STARTUPS_STORE_FILE,
         "filter_usage_stats.json",
         "validation_stats.json",
-        "validation_history.json"
+        "validation_history.json",
+        "cache_metadata.json"
     ]
     for filename in files_to_delete:
         if os.path.exists(filename):
@@ -1164,10 +1172,4 @@ async def reset_all_data():
     )
     current_settings = AISettings()
     jobs_db = []
-    
-    # Reset env keys
-    for key in ["AI_PROVIDER", "OPENAI_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OLLAMA_URL"]:
-        if key in os.environ:
-            del os.environ[key]
-            
     return {"status": "success", "message": "All local data reset successfully."}
