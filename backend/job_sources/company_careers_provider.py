@@ -138,18 +138,20 @@ class CompanyCareersJobProvider(BaseJobProvider):
                 profile_skills = []
                 profile_roles = []
                 experience_level = "Fresher"
+                preferred_region = "Kerala, India"
                 if os.path.exists("profile.json"):
                     with open("profile.json", "r", encoding="utf-8") as f:
                         prof = json.load(f)
                         profile_skills = prof.get("skills", [])
                         profile_roles = prof.get("target_roles", [])
                         experience_level = prof.get("experience_level", "Fresher")
+                        preferred_region = prof.get("region") or prof.get("location") or "Kerala, India"
                         
                 system_prompt = "You are a professional Job Discovery Scraper Agent."
                 user_prompt = f"""
 Search your database and knowledge base to fetch a list of 5-8 real-world, highly relevant active job roles for a candidate with the following details. The candidate may have an IT/tech or non-tech background, depending on their target roles and skills:
 - Search Keywords: {keywords}
-- Preferred Location: {location} (Focus heavily on Kerala, India region if default or remote)
+- Preferred Location: {location} (Focus heavily on the {preferred_region} region if default or remote)
 - Candidate Skills: {", ".join(profile_skills)}
 - Target Roles: {", ".join(profile_roles)}
 - Experience Level: {experience_level}
@@ -158,12 +160,12 @@ You MUST return a JSON list of job objects. Each object MUST have this schema:
 [
   {{
     "title": "Job Title (matching candidate's target roles and field)",
-    "company": "Company Name (use real active companies active in India/Kochi/Trivandrum/Remote matching the candidate's sector, e.g., Riafy, SayOne, CareStack, Accubits, KeyValue, Entri, or others)",
-    "location": "Location (e.g. Kochi, Kerala, India or Remote)",
-    "salary": "Salary (transparency is key, e.g. ₹4.5 LPA - ₹6.0 LPA or $80,000 - $100,000)",
+    "company": "Company Name (use real active companies active in the targeted region matching the candidate's sector, different from existing ones)",
+    "location": "Location (matching {preferred_region} or Remote)",
+    "salary": "Salary (transparency is key, e.g. appropriate regional local currency salary standard or USD)",
     "description": "A detailed job description specifying responsibilities, skills, and evaluation style. Make it realistic and detailed (at least 3-4 sentences).",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "The direct official careers website URL of the company (e.g., https://riafy.me, https://sayonetech.com/careers, or the specific job's application link on the official company website). It MUST be a real, working website URL of the company."
+    "url": "The direct official careers website URL of the company. It MUST be a real, working website URL of the company."
   }}
 ]
 

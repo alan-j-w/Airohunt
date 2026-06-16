@@ -17,6 +17,7 @@ from job_sources.company_careers_provider import KERALA_STARTUPS_POOL
 from ai.resume_version_manager import ResumeVersionManager
 from automation.application_engine import ApplicationEngine
 from ai.strict_job_validator import StrictJobValidationEngine
+from geo_utils import get_standardized_city
 
 app = FastAPI()
 
@@ -669,31 +670,19 @@ async def get_filter_options():
     locations = set()
     for j in jobs:
         loc = j.location.lower()
-        if "remote" in loc:
+        if "remote" in loc or "wfh" in loc or "work from home" in loc:
             locations.add("Remote")
-        if "kochi" in loc or "cochin" in loc:
-            locations.add("Kochi")
-        if "trivandrum" in loc or "thiruvananthapuram" in loc:
-            locations.add("Trivandrum")
-        if "kozhikode" in loc or "calicut" in loc:
-            locations.add("Kozhikode")
-        if "bangalore" in loc or "bengaluru" in loc:
-            locations.add("Bangalore")
-        if "hyderabad" in loc:
-            locations.add("Hyderabad")
-        if "chennai" in loc:
-            locations.add("Chennai")
-        if "pune" in loc:
-            locations.add("Pune")
-        if "mumbai" in loc:
-            locations.add("Mumbai")
-        if "delhi" in loc or "ncr" in loc:
-            locations.add("Delhi")
+            continue
             
-    if not locations:
-        locations = list(set(j.location for j in jobs if j.location))
-    else:
-        locations = sorted(list(locations))
+        std_city = get_standardized_city(j.location)
+        if std_city:
+            locations.add(std_city)
+        else:
+            parts = [p.strip() for p in j.location.split(',')]
+            if parts and parts[0]:
+                locations.add(parts[0].title())
+                
+    locations = sorted(list(locations))
         
     company_types = ["Startup", "Mid-size Product", "Enterprise", "MNC", "Agency", "Consultancy"]
     experience_levels = ["Fresher", "0-1 Years", "1-2 Years", "2-5 Years", "5+ Years"]
@@ -848,6 +837,7 @@ async def scrape_more_startups_endpoint():
     profile_roles = current_profile.target_roles
     experience_level = current_profile.experience_level
     location_pref = current_profile.location or "Remote"
+    preferred_region = current_profile.region or current_profile.location or "Kerala, India"
     
     existing_companies_str = "\n".join([f"- {s.get('company')} ({s.get('title')})" for s in startups_data])
     
@@ -857,11 +847,11 @@ async def scrape_more_startups_endpoint():
         try:
             system_prompt = "You are a professional Job Discovery Scraper Agent specializing in Startups."
             user_prompt = f"""
-Search your database and knowledge base to fetch a list of 4-6 real-world, active companies/startups hiring in India (especially Kochi/Trivandrum/Bangalore/Remote) matching the candidate's profile and industry sector:
+Search your database and knowledge base to fetch a list of 4-6 real-world, active companies/startups hiring in the targeted region or globally matching the candidate's profile and industry sector:
 - Candidate Skills: {", ".join(profile_skills)}
 - Target Roles: {", ".join(profile_roles)}
 - Experience Level: {experience_level}
-- Location Preference: {location_pref} (Focus heavily on Kerala, India region if default or remote)
+- Location Preference: {location_pref} (Focus heavily on the {preferred_region} region if default or remote)
 
 CRITICAL: Do NOT return any of the following startups/roles that the candidate already has in their list:
 {existing_companies_str}
@@ -870,12 +860,12 @@ You MUST return a JSON list of startup hiring objects. Each object MUST have thi
 [
   {{
     "title": "Hiring Job Title (matching candidate's target roles and field)",
-    "company": "Company Name (use real companies/startups active in India/Remote matching the candidate's sector, e.g. UST Global, CareStack, Accubits, Riafy, SayOne, Entri, KeyValue, or others)",
-    "location": "Location (e.g. Kochi, Kerala, India or Remote)",
-    "salary": "Salary (e.g. ₹4.0 LPA - ₹6.0 LPA or $50,000 - $70,000)",
+    "company": "Company Name (use real active companies/startups hiring in this region or remote matching candidate's sector, different from existing ones)",
+    "location": "Location (matching {preferred_region} or Remote)",
+    "salary": "Salary (e.g. appropriate local currency standard or USD)",
     "description": "A brief description of what the startup does and the hiring role details.",
     "skills_required": ["Skill1", "Skill2", "Skill3"],
-    "url": "The direct official careers website URL of the company (e.g., https://companyname.com/careers or similar official company website). It MUST be a real, working website URL."
+    "url": "The direct official careers website URL of the company. It MUST be a real, working website URL."
   }}
 ]
 

@@ -2,6 +2,7 @@ import os
 import httpx
 from typing import List, Dict, Any
 from job_sources.base_provider import BaseJobProvider
+from geo_utils import resolve_country_code
 
 class AdzunaJobProvider(BaseJobProvider):
     async def fetch_jobs(self, keywords: str, location: str, limit: int = 15) -> List[Dict[str, Any]]:
@@ -13,7 +14,8 @@ class AdzunaJobProvider(BaseJobProvider):
             
         jobs_out = []
         try:
-            url = "https://api.adzuna.com/v1/api/jobs/us/search/1"
+            country_code = resolve_country_code(location)
+            url = f"https://api.adzuna.com/v1/api/jobs/{country_code}/search/1"
             params = {
                 "app_id": adzuna_app_id,
                 "app_key": adzuna_app_key,

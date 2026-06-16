@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Tuple, Dict, Any
 from models import Job, UserProfile
 from utils import load_json_file, save_json_file
+from geo_utils import get_state_from_city
 
 # Filenames for local persistence
 BLACKLIST_FILE = "company_blacklist.json"
@@ -263,8 +264,14 @@ class StrictJobValidationEngine:
             
         # Region checks
         region_match = False
-        if not pref_region or pref_region in job_loc:
+        if not pref_region:
             region_match = True
+        elif pref_region in job_loc:
+            region_match = True
+        else:
+            resolved_state = get_state_from_city(job.location)
+            if resolved_state and resolved_state.lower() in pref_region:
+                region_match = True
             
         if work_mode_match and region_match:
             score = 15.0
@@ -276,6 +283,7 @@ class StrictJobValidationEngine:
             score = 5.0
             
         return score, reasons
+
 
     def _score_experience_match(self, job: Job) -> Tuple[float, List[str], List[str], bool]:
         """

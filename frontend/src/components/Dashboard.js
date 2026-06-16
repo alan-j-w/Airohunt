@@ -19,6 +19,7 @@ import Swal from "sweetalert2";
 
 const Dashboard = () => {
   const {
+    profile,
     jobs,
     fetchJobs,
     updateQueueStatus,
@@ -62,6 +63,7 @@ const Dashboard = () => {
   const [searchLocationInput, setSearchLocationInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLocation, setSearchLocation] = useState("");
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -413,7 +415,7 @@ const Dashboard = () => {
           </div>
 
           {/* WHERE INPUT */}
-          <div className="flex items-center flex-1 w-full px-3 py-2 gap-2">
+          <div className="flex items-center flex-1 w-full px-3 py-2 gap-2 relative">
             <FaMapMarkerAlt className="text-slate-400 text-sm flex-shrink-0" />
             <div className="flex-1">
               <label className="text-[8px] font-black uppercase text-slate-500 block leading-none mb-0.5">Where</label>
@@ -421,7 +423,14 @@ const Dashboard = () => {
                 type="text"
                 placeholder="City, state, or 'Remote'"
                 value={searchLocationInput}
-                onChange={(e) => setSearchLocationInput(e.target.value)}
+                onChange={(e) => {
+                  setSearchLocationInput(e.target.value);
+                  setShowLocationDropdown(true);
+                }}
+                onFocus={() => setShowLocationDropdown(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowLocationDropdown(false), 200);
+                }}
                 className="w-full bg-transparent text-sm text-slate-200 placeholder-slate-600 focus:outline-none font-medium"
               />
             </div>
@@ -433,6 +442,43 @@ const Dashboard = () => {
               >
                 ×
               </button>
+            )}
+
+            {/* Auto-suggest dropdown */}
+            {showLocationDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden z-50 max-h-60 overflow-y-auto">
+                <div
+                  onMouseDown={() => setSearchLocationInput("Remote")}
+                  className="px-4 py-2 text-xs text-slate-300 hover:bg-cyan-500 hover:text-black font-semibold cursor-pointer transition-colors"
+                >
+                  Remote
+                </div>
+                {profile.region && (
+                  <div
+                    onMouseDown={() => setSearchLocationInput(profile.region)}
+                    className="px-4 py-2 text-xs text-slate-300 hover:bg-cyan-500 hover:text-black font-semibold cursor-pointer transition-colors border-t border-slate-800/40"
+                  >
+                    Current Region: {profile.region}
+                  </div>
+                )}
+                {profile.location && profile.location !== profile.region && (
+                  <div
+                    onMouseDown={() => setSearchLocationInput(profile.location)}
+                    className="px-4 py-2 text-xs text-slate-300 hover:bg-cyan-500 hover:text-black font-semibold cursor-pointer transition-colors border-t border-slate-800/40"
+                  >
+                    Current Location: {profile.location}
+                  </div>
+                )}
+                {(filterOptions.locations || []).filter(loc => loc && loc.toLowerCase() !== "remote" && loc.toLowerCase() !== (profile.region || "").toLowerCase()).map(loc => (
+                  <div
+                    key={loc}
+                    onMouseDown={() => setSearchLocationInput(loc)}
+                    className="px-4 py-2 text-xs text-slate-300 hover:bg-cyan-500 hover:text-black font-semibold cursor-pointer transition-colors border-t border-slate-800/40"
+                  >
+                    {loc}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
