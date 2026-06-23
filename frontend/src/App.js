@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "./store";
 
-import { PipelineToolbar } from "./toolbar";
-import { PipelineUI } from "./ui";
 import Dashboard from "./components/Dashboard";
 import ProfileSettings from "./components/ProfileSettings";
 import SettingsPanel from "./components/SettingsPanel";
@@ -78,7 +76,6 @@ function App() {
         <nav className="flex gap-2">
           {[
             { id: "dashboard", label: "Jobs Dashboard" },
-            { id: "canvas", label: "Automation Canvas" },
             { id: "profile", label: "Resume & Profile" },
             { id: "settings", label: "Settings" }
           ].map((tab) => (
@@ -102,19 +99,6 @@ function App() {
       {/* MAIN CONTAINER CONTENT */}
       <main className="flex-1 flex flex-col">
         {activeTab === "dashboard" && <Dashboard />}
-
-        {activeTab === "canvas" && (
-          <div className="flex-1 flex flex-col">
-            <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Drag nodes to customize your flow</span>
-            </div>
-            <PipelineToolbar />
-            
-            <div className="flex-1 relative">
-              <PipelineUI />
-            </div>
-          </div>
-        )}
 
         {activeTab === "profile" && <ProfileSettings />}
         

@@ -3,6 +3,8 @@ import os
 import json
 import uuid
 import re
+import httpx
+from html.parser import HTMLParser
 from typing import List, Dict, Any
 from models import Job, UserProfile
 
@@ -21,6 +23,102 @@ from utils import load_json_file, save_json_file
 
 
 SETTINGS_FILE = "settings.json"
+
+QUERY_EXPANSION_MAP = {
+    "react": ["React Developer", "Frontend Engineer", "React JS Developer", "MERN Stack Developer"],
+    "frontend": ["Frontend Engineer", "Frontend Developer", "UI Developer", "React Developer", "Javascript Developer"],
+    "backend": ["Backend Engineer", "Backend Developer", "Software Engineer (Backend)", "Python Developer", "Node.js Developer"],
+    "python": ["Python Developer", "Backend Developer", "Python Engineer", "Software Engineer (Python)"],
+    "full stack": ["Full Stack Developer", "Full Stack Engineer", "MERN Developer", "Software Engineer (Full Stack)"],
+    "software engineer": ["Software Engineer", "Software Developer", "Associate Software Engineer", "Junior Developer"],
+    "developer": ["Software Developer", "Software Engineer", "Developer"],
+    "ui": ["UI/UX Designer", "Product Designer", "UI Developer", "Figma Designer"],
+    "ux": ["UI/UX Designer", "Product Designer", "User Experience Researcher"],
+    "design": ["Graphic Designer", "UI/UX Designer", "Creative Designer"],
+    "marketing": ["Marketing Specialist", "Social Media Manager", "Digital Marketing Executive", "SEO Specialist"],
+    "hr": ["HR Associate", "Recruiter", "Human Resources Manager", "Talent Acquisition Specialist"],
+    "finance": ["Finance Executive", "Accountant", "Financial Analyst"]
+}
+
+def expand_search_query(query: str) -> List[str]:
+    q_clean = query.strip().lower()
+    expanded = []
+    
+    for key, values in QUERY_EXPANSION_MAP.items():
+        if key in q_clean:
+            for val in values:
+                if val not in expanded:
+                    expanded.append(val)
+                    
+    if not expanded:
+        expanded = [query.strip()]
+    return expanded
+
+class HTMLTextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.convert_charrefs = True
+        self.text_parts = []
+        self.ignore_tags = {"script", "style", "head", "nav", "footer", "noscript", "iframe", "header"}
+        self.current_stack = []
+
+    def handle_starttag(self, tag, attrs):
+        self.current_stack.append(tag.lower())
+
+    def handle_endtag(self, tag):
+        if self.current_stack:
+            self.current_stack.pop()
+
+    def handle_data(self, data):
+        if any(tag in self.ignore_tags for tag in self.current_stack):
+            return
+        cleaned = data.strip()
+        if cleaned:
+            self.text_parts.append(cleaned)
+
+    def get_text(self):
+        return "\n".join(self.text_parts)
+
+def extract_clean_text_from_html(html: str) -> str:
+    parser = HTMLTextExtractor()
+    try:
+        parser.feed(html)
+        text = parser.get_text()
+        text = re.sub(r'\n+', '\n', text)
+        text = re.sub(r' +', ' ', text)
+        return text.strip()
+    except Exception:
+        clean = re.sub(r'<script.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        clean = re.sub(r'<style.*?</style>', '', clean, flags=re.DOTALL | re.IGNORECASE)
+        clean = re.sub(r'<.*?>', ' ', clean, flags=re.DOTALL)
+        return "\n".join([line.strip() for line in clean.split("\n") if line.strip()])
+
+async def hydrate_job_description(url: str, current_snippet: str) -> str:
+    if not url or "adzuna.com" in url or "jooble.org" in url or "google.com" in url:
+        return current_snippet
+        
+    if len(current_snippet) > 600:
+        return current_snippet
+        
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5"
+    }
+    
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
+            response = await client.get(url, headers=headers, timeout=4.0)
+            if response.status_code == 200:
+                html_text = response.text
+                clean_text = extract_clean_text_from_html(html_text)
+                if len(clean_text) > len(current_snippet) + 100:
+                    return clean_text[:12000]
+    except Exception as e:
+        print(f"Failed to hydrate job description from {url}: {e}")
+        
+    return current_snippet
 
 def get_active_providers() -> List[str]:
     # Default active sources
@@ -256,7 +354,13 @@ async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = 
     if "company_careers" in active_sources:
         providers.append(CompanyCareersJobProvider())
         
-    tasks = [p.fetch_jobs(keywords, location_pref) for p in providers]
+    # Expand keywords using synonym mapping
+    expanded_keywords = expand_search_query(keywords)
+    
+    tasks = []
+    for kw in expanded_keywords:
+        for p in providers:
+            tasks.append(p.fetch_jobs(kw, location_pref))
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     merged_raw_jobs = []
@@ -264,14 +368,37 @@ async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = 
         if isinstance(res, list):
             merged_raw_jobs.extend(res)
             
+    def get_raw_source_rank(url: str) -> int:
+        url_lower = url.lower()
+        if any(k in url_lower for k in ["greenhouse.io", "lever.co", "ashbyhq.com", "workable.com"]):
+            return 4
+        if "careers" in url_lower:
+            return 3
+        if "jooble" in url_lower or "adzuna" in url_lower:
+            return 1
+        return 2
+
+    # Sort raw jobs so direct careers URLs are prioritized during deduplication
+    merged_raw_jobs.sort(key=lambda x: get_raw_source_rank(x.get("url", "")), reverse=True)
+            
     # Remove duplicates based on company & title
     unique_jobs = []
     seen = set()
     for job in merged_raw_jobs:
-        key = f"{job['title'].lower()}|{job['company'].lower()}"
+        key = (job.get("title", "").strip().lower(), job.get("company", "").strip().lower())
         if key not in seen:
             seen.add(key)
             unique_jobs.append(job)
+            
+    # Asynchronously hydrate job description snippets concurrently (max 5 parallel requests)
+    sem = asyncio.Semaphore(5)
+    async def hydrate_task(job_dict):
+        async with sem:
+            hydrated_desc = await hydrate_job_description(job_dict.get("url", ""), job_dict.get("description", ""))
+            job_dict["description"] = hydrated_desc
+            
+    hydration_tasks = [hydrate_task(job) for job in unique_jobs]
+    await asyncio.gather(*hydration_tasks, return_exceptions=True)
             
     # 3. Load Career Memory queue to analyze historical outcomes
     pairwise_stats = _load_pairwise_stats()
@@ -469,6 +596,12 @@ async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = 
     return displayed_jobs
 
 async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipeline_nodes: List[dict] = None, override_keywords: str = None, override_location: str = None) -> List[Job]:
+    # Create a copy of the profile to modify for target roles/skills validation if we have search overrides
+    eval_profile = UserProfile(**profile.dict())
+    if override_keywords and override_keywords.strip():
+        eval_profile.target_roles = [override_keywords.strip()]
+        eval_profile.skills = [override_keywords.strip()]
+
     if pipeline_nodes is None:
         pipeline_data = load_json_file("pipeline.json", {"nodes": [], "edges": []})
         pipeline_nodes = pipeline_data.get("nodes", [])
@@ -540,8 +673,8 @@ async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipe
     if parsed_preferences.get("preferred_roles") and keywords == "Software Engineer":
         keywords = parsed_preferences["preferred_roles"][0]
         
-    if profile.location and location_pref == "Remote":
-        location_pref = profile.location
+    if eval_profile.location and location_pref == "Remote":
+        location_pref = eval_profile.location
 
     # Apply overrides if provided
     if override_keywords and override_keywords.strip():
@@ -550,25 +683,28 @@ async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipe
         location_pref = override_location.strip()
 
     # 2. Build existing jobs list to exclude them
-    existing_jobs_str = "\n".join([f"- {j.get('title')} at {j.get('company')}" for j in existing_jobs])
-
-    # 3. Query LLM provider to fetch additional unique jobs
+    existing_jobs_str = "\n".join([f"- {j.get('title')} at {j.get('company')}" for j in existing_jobs])    # 3. Query LLM provider to fetch additional unique jobs
     pm = ProviderManager()
     active_provider = pm.settings.get("active_provider", "local")
     
-    profile_skills = profile.skills
-    profile_roles = profile.target_roles
-    experience_level = profile.experience_level
-    preferred_region = profile.region or profile.location or "Kerala, India"
+    profile_skills = eval_profile.skills
+    profile_roles = eval_profile.target_roles
+    experience_level = eval_profile.experience_level
+    preferred_region = eval_profile.region or eval_profile.location or "Kerala, India"
     
     raw_jobs_list = []
     
+    # Expand keywords using synonym mapping
+    expanded_keywords = expand_search_query(keywords)
+    
     if active_provider and active_provider.lower() != "local":
-        try:
-            system_prompt = "You are a professional Job Discovery Scraper Agent."
-            user_prompt = f"""
+        async def fetch_llm_jobs_for_keyword(kw):
+            llm_raw_list = []
+            try:
+                system_prompt = "You are a professional Job Discovery Scraper Agent."
+                user_prompt = f"""
 Search your database and knowledge base to fetch a list of 5-8 real-world, highly relevant active job roles for a candidate with the following details. The candidate may have an IT/tech or non-tech background, depending on their target roles and skills:
-- Search Keywords: {keywords}
+- Search Keywords: {kw}
 - Preferred Location: {location_pref} (Focus heavily on the {preferred_region} region if default or remote)
 - Candidate Skills: {", ".join(profile_skills)}
 - Target Roles: {", ".join(profile_roles)}
@@ -592,76 +728,71 @@ You MUST return a JSON list of job objects. Each object MUST have this schema:
 
 Return ONLY the raw JSON list. Do not write any explanation, introduction, markdown blocks, or code fences.
 """
-            res = await pm.call_llm(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                response_format_json=True
-            )
-            
-            res_clean = res.strip()
-            if res_clean.startswith("```json"):
-                res_clean = res_clean[7:]
-            if res_clean.endswith("```"):
-                res_clean = res_clean[:-3]
+                res = await pm.call_llm(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_format_json=True
+                )
                 
-            jobs_list = json.loads(res_clean.strip())
-            if isinstance(jobs_list, list):
-                for job in jobs_list:
-                    raw_jobs_list.append({
-                        "title": job.get("title", "Software Developer"),
-                        "company": job.get("company", "Tech Startup"),
-                        "location": job.get("location", location_pref),
-                        "salary": job.get("salary", "Not Specified"),
-                        "description": job.get("description", "Software developer role."),
-                        "skills_required": job.get("skills_required", [keywords]),
-                        "url": job.get("url", "https://boards.greenhouse.io/careers")
-                    })
-        except Exception as e:
-            print(f"LLM Job Discovery Scraper failed in scrape_more_jobs: {str(e)}")
+                res_clean = res.strip()
+                if res_clean.startswith("```json"):
+                    res_clean = res_clean[7:]
+                if res_clean.endswith("```"):
+                    res_clean = res_clean[:-3]
+                    
+                jobs_list = json.loads(res_clean.strip())
+                if isinstance(jobs_list, list):
+                    for job in jobs_list:
+                        llm_raw_list.append({
+                            "title": job.get("title", "Software Developer"),
+                            "company": job.get("company", "Tech Startup"),
+                            "location": job.get("location", location_pref),
+                            "salary": job.get("salary", "Not Specified"),
+                            "description": job.get("description", "Software developer role."),
+                            "skills_required": job.get("skills_required", [kw]),
+                            "url": job.get("url", "https://boards.greenhouse.io/careers")
+                        })
+            except Exception as e:
+                print(f"LLM Job Discovery Scraper failed in scrape_more_jobs for keyword {kw}: {str(e)}")
+            return llm_raw_list
+
+        llm_tasks = [fetch_llm_jobs_for_keyword(kw) for kw in expanded_keywords]
+        llm_results = await asyncio.gather(*llm_tasks, return_exceptions=True)
+        for r in llm_results:
+            if isinstance(r, list):
+                raw_jobs_list.extend(r)
 
     if not raw_jobs_list:
-        # Local fallback generation based on candidate's skills and preferences
-        fallback_roles = profile_roles if profile_roles else ["Full Stack Developer", "Software Engineer"]
-        fallback_pool = []
-        real_companies = [
-            {"name": "SayOne Technologies", "url": "https://sayonetech.com/careers"},
-            {"name": "KeyValue Systems", "url": "https://keyvalue.systems/careers"},
-            {"name": "Accubits Technologies", "url": "https://accubits.com/careers"},
-            {"name": "Riafy Technologies", "url": "https://riafy.me"},
-            {"name": "Entri.app", "url": "https://entri.app"},
-            {"name": "CareStack Systems", "url": "https://carestack.com/careers"},
-            {"name": "UST Global", "url": "https://ust.com/careers"},
-            {"name": "IBS Software", "url": "https://www.ibssoftware.com/careers"}
-        ]
-        for idx, role in enumerate(fallback_roles):
-            comp_info = real_companies[idx % len(real_companies)]
+        return []
+
+    # Raw Deduplication prioritizing direct sources
+    def get_raw_source_rank(url: str) -> int:
+        url_lower = url.lower()
+        if any(k in url_lower for k in ["greenhouse.io", "lever.co", "ashbyhq.com", "workable.com"]):
+            return 4
+        if "careers" in url_lower:
+            return 3
+        return 2
+
+    raw_jobs_list.sort(key=lambda x: get_raw_source_rank(x.get("url", "")), reverse=True)
+    
+    unique_raw_jobs = []
+    seen = set()
+    for job in raw_jobs_list:
+        key = (job.get("title", "").strip().lower(), job.get("company", "").strip().lower())
+        if key not in seen:
+            seen.add(key)
+            unique_raw_jobs.append(job)
+
+    # Hydrate snippets concurrently with Semaphore control (max 5 parallel requests)
+    sem = asyncio.Semaphore(5)
+    async def hydrate_task(job_dict):
+        async with sem:
+            hydrated_desc = await hydrate_job_description(job_dict.get("url", ""), job_dict.get("description", ""))
+            job_dict["description"] = hydrated_desc
             
-            # Detect if tech or non-tech role
-            is_tech = any(w in role.lower() for w in ["developer", "engineer", "programmer", "architect", "tech", "qa", "devops", "software", "sysadmin", "data scientist", "coder"])
-            
-            if is_tech:
-                title = f"Associate {role}" if "associate" not in role.lower() else role
-                desc = f"{comp_info['name']} is seeking an {title} to join our growing engineering department. This is a project-focused role where candidates will build and scale web services. Evaluation is strictly portfolio and task-oriented, no whiteboard DSA."
-                skills = profile_skills[:3] if profile_skills else ["Python", "React", "JavaScript"]
-            else:
-                title = role
-                desc = f"{comp_info['name']} is looking for a qualified {title} to support our business operations and growth. We are looking for candidates with strong communication, teamwork, and domain expertise. Evaluation is based on past experience, interview, and situational task."
-                skills = profile_skills[:3] if profile_skills else ["Excel", "Communication", "Management"]
-                
-            fallback_pool.append({
-                "title": title,
-                "company": comp_info["name"],
-                "location": f"{location_pref} (Hybrid)",
-                "salary": "₹3.8 LPA - ₹5.5 LPA",
-                "description": desc,
-                "skills_required": skills,
-                "url": comp_info["url"]
-            })
-        
-        # Filter out existing ones
-        for item in fallback_pool:
-            if not any(j.get('title', '').lower() == item['title'].lower() and j.get('company', '').lower() == item['company'].lower() for j in existing_jobs):
-                raw_jobs_list.append(item)
+    hydration_tasks = [hydrate_task(job) for job in unique_raw_jobs]
+    await asyncio.gather(*hydration_tasks, return_exceptions=True)
 
     # 4. Load Career Memory pairwise stats
     pairwise_stats = _load_pairwise_stats()
@@ -671,7 +802,7 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
     eval_tasks = []
     jobs_to_eval = []
     
-    for item in raw_jobs_list:
+    for item in unique_raw_jobs:
         # Apply Salary filter node configuration
         keep_salary, sal_warn = check_salary_filter(item["salary"], min_salary, salary_currency, salary_unknown_policy)
         if not keep_salary:
@@ -692,7 +823,7 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
         )
         
         jobs_to_eval.append((job_obj, sal_warn, item))
-        eval_tasks.append(evaluate_job_listing(job_obj, profile, parsed_preferences, startup_w, remote_w, salary_w, trust_w))
+        eval_tasks.append(evaluate_job_listing(job_obj, eval_profile, parsed_preferences, startup_w, remote_w, salary_w, trust_w))
         
     eval_results = await asyncio.gather(*eval_tasks, return_exceptions=True)
     
@@ -833,7 +964,7 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
     deduplicated_jobs, dup_removed = deduplicate_jobs(scored_jobs)
     
     # Validate
-    validator = StrictJobValidationEngine(profile)
+    validator = StrictJobValidationEngine(eval_profile)
     validated_jobs = []
     for job in deduplicated_jobs:
         validated_job = validator.validate_job(job)

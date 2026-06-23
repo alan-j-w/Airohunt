@@ -7,21 +7,7 @@ class JoobleJobProvider(BaseJobProvider):
     async def fetch_jobs(self, keywords: str, location: str, limit: int = 15) -> List[Dict[str, Any]]:
         jooble_api_key = os.getenv("JOOBLE_API_KEY", "")
         
-        # If no key, return simulated Jooble listings matching keywords
         if not jooble_api_key:
-            # Simulated Jooble results to demonstrate multi-provider aggregation
-            if "react" in keywords.lower():
-                return [
-                    {
-                        "title": "React JS Engineer",
-                        "company": "Jooble Simulated: Nexus Corp",
-                        "location": location or "Remote",
-                        "salary": "$90,000 - $110,000",
-                        "description": "Nexus Corp is hiring a React JS Engineer. Optimize responsive state engines, design component graphs, and interface with GraphQL endpoints. Strong CSS and Tailwind experience required.",
-                        "skills_required": ["React", "JavaScript", "Tailwind CSS", "GraphQL"],
-                        "url": "https://jooble.org/simulated-nexus"
-                    }
-                ]
             return []
             
         jobs_out = []

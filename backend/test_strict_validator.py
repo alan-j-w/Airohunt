@@ -39,15 +39,16 @@ def test_experience_penalties():
     print(f"1 Year Exp Job Validation Score: {validated_one.validation_score}, Tier: {validated_one.validation_tier}, Warnings: {validated_one.validation_warnings}")
     assert any("experience slightly above preference" in w.lower() for w in validated_one.validation_warnings)
 
-    # 3. 3 years experience (+3 above target) -> -30 points penalty
+    # 3. 3 years experience (+3 above target) -> Hard reject for fresher (Tier D)
     three_yr_job = Job(
         id="j3", title="React Developer", company="Startup Corp", location="Remote",
         salary="10 LPA", description="Looking for a React Developer with 3 years of experience.", url="https://greenhouse.io/startup/jobs/3",
         skills_required=["React"]
     )
     validated_three = validator.validate_job(three_yr_job)
-    print(f"3 Year Exp Job Validation Score: {validated_three.validation_score}, Tier: {validated_three.validation_tier}, Warnings: {validated_three.validation_warnings}")
-    assert any("experience requirements exceed preference" in w.lower() for w in validated_three.validation_warnings)
+    print(f"3 Year Exp Job Validation Score: {validated_three.validation_score}, Tier: {validated_three.validation_tier}, Rejections: {validated_three.rejection_reasons}")
+    assert validated_three.validation_tier == "D"
+    assert any("experience" in r.lower() for r in validated_three.rejection_reasons)
 
     # 4. 5+ years experience (+5 above target) -> Hard reject Tier D
     five_yr_job = Job(
@@ -58,7 +59,7 @@ def test_experience_penalties():
     validated_five = validator.validate_job(five_yr_job)
     print(f"5 Year Exp Job Validation Score: {validated_five.validation_score}, Tier: {validated_five.validation_tier}, Rejections: {validated_five.rejection_reasons}")
     assert validated_five.validation_tier == "D"
-    assert "Experience Too High" in validated_five.rejection_reasons
+    assert any("experience too high" in r.lower() for r in validated_five.rejection_reasons)
 
 
 def test_hard_reject_gates():

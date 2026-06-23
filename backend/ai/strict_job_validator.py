@@ -109,6 +109,20 @@ class StrictJobValidationEngine:
             if kw in text_check:
                 return True, "Training Institute"
 
+        # 6. Experience hard reject for Freshers
+        cand_level = self.profile.experience_level.lower().strip()
+        if cand_level == "fresher":
+            req_exp = self._parse_experience(job)
+            if req_exp >= 2:
+                return True, f"Experience Too High ({req_exp} yrs required)"
+            
+            title_lower = job.title.lower()
+            senior_keywords = ["senior", "sr.", "sr ", "lead", "manager", "architect", "principal", "director", "head", "vp", "staff", "chief"]
+            for kw in senior_keywords:
+                pattern = r'\b' + re.escape(kw) + r'\b'
+                if re.search(pattern, title_lower):
+                    return True, f"Senior Level Role ({kw.title()})"
+
         return False, ""
 
     def validate_job(self, job: Job) -> Job:

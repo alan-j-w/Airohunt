@@ -1,0 +1,254 @@
+{
+    "nodes": [
+        {
+            "id": "jobSearchTrigger-1",
+            "type": "jobSearchTrigger",
+            "position": {
+                "x": 50,
+                "y": 150
+            },
+            "data": {
+                "id": "jobSearchTrigger-1",
+                "keywords": "Software Engineer",
+                "location": "Remote"
+            },
+            "width": 240,
+            "height": 185
+        },
+        {
+            "id": "jobSources-1",
+            "type": "jobSources",
+            "position": {
+                "x": 320,
+                "y": 150
+            },
+            "data": {
+                "id": "jobSources-1",
+                "sourceAdzuna": true,
+                "sourceJooble": true,
+                "sourceManualImport": false,
+                "sourceCompanyCareers": true
+            },
+            "width": 240,
+            "height": 213
+        },
+        {
+            "id": "preferenceFilter-1",
+            "type": "preferenceFilter",
+            "position": {
+                "x": 590,
+                "y": 150
+            },
+            "data": {
+                "id": "preferenceFilter-1",
+                "aiInstructions": ""
+            },
+            "width": 356,
+            "height": 200
+        },
+        {
+            "id": "salaryFilter-1",
+            "type": "salaryFilter",
+            "position": {
+                "x": 860,
+                "y": 150
+            },
+            "data": {
+                "id": "salaryFilter-1",
+                "minSalary": 3,
+                "currency": "INR_LPA",
+                "salaryUnknownPolicy": "Allow",
+                "jobType": "Full-Time"
+            },
+            "width": 240,
+            "height": 296
+        },
+        {
+            "id": "scamFilter-1",
+            "type": "scamFilter",
+            "position": {
+                "x": 1130,
+                "y": 150
+            },
+            "data": {
+                "id": "scamFilter-1",
+                "scamMode": "balanced"
+            },
+            "width": 738,
+            "height": 152
+        },
+        {
+            "id": "skillMatch-1",
+            "type": "skillMatch",
+            "position": {
+                "x": 1400,
+                "y": 150
+            },
+            "data": {
+                "id": "skillMatch-1",
+                "minMatchPercent": 50
+            },
+            "width": 310,
+            "height": 129
+        },
+        {
+            "id": "opportunityRanker-1",
+            "type": "opportunityRanker",
+            "position": {
+                "x": 1670,
+                "y": 150
+            },
+            "data": {
+                "id": "opportunityRanker-1",
+                "startupWeight": "Medium",
+                "remoteWeight": "Medium",
+                "salaryWeight": "Medium",
+                "trustWeight": "Medium"
+            },
+            "width": 467,
+            "height": 212
+        },
+        {
+            "id": "resumeScore-1",
+            "type": "resumeScore",
+            "position": {
+                "x": 1940,
+                "y": 150
+            },
+            "data": {
+                "id": "resumeScore-1"
+            },
+            "width": 465,
+            "height": 116
+        },
+        {
+            "id": "resumeTailor-1",
+            "type": "resumeTailor",
+            "position": {
+                "x": 2210,
+                "y": 150
+            },
+            "data": {
+                "id": "resumeTailor-1",
+                "modelType": "local"
+            },
+            "width": 354,
+            "height": 148
+        },
+        {
+            "id": "appSubmit-1",
+            "type": "appSubmit",
+            "position": {
+                "x": 2480,
+                "y": 150
+            },
+            "data": {
+                "id": "appSubmit-1",
+                "automationMode": "Assisted Apply"
+            },
+            "width": 314,
+            "height": 152
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-trigger-sources",
+            "source": "jobSearchTrigger-1",
+            "target": "jobSources-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-sources-pref",
+            "source": "jobSources-1",
+            "target": "preferenceFilter-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-pref-sal",
+            "source": "preferenceFilter-1",
+            "target": "salaryFilter-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-sal-scam",
+            "source": "salaryFilter-1",
+            "target": "scamFilter-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-scam-skill",
+            "source": "scamFilter-1",
+            "target": "skillMatch-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-skill-ranker",
+            "source": "skillMatch-1",
+            "target": "opportunityRanker-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-ranker-score",
+            "source": "opportunityRanker-1",
+            "target": "resumeScore-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-score-tailor",
+            "source": "resumeScore-1",
+            "target": "resumeTailor-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        },
+        {
+            "id": "e-tailor-apply",
+            "source": "resumeTailor-1",
+            "target": "appSubmit-1",
+            "type": "smoothstep",
+            "animated": true,
+            "style": {
+                "stroke": "#06b6d4",
+                "strokeWidth": 2
+            }
+        }
+    ]
+}
