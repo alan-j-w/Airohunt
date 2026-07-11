@@ -36,6 +36,18 @@ const SettingsPanel = () => {
   const [sourceManualImport, setSourceManualImport] = useState(settings.source_manual_import);
   const [sourceCompanyCareers, setSourceCompanyCareers] = useState(settings.source_company_careers);
 
+  // Pipeline filter & weights states
+  const [minMatchPercent, setMinMatchPercent] = useState(settings.min_match_percent ?? 50.0);
+  const [minSalary, setMinSalary] = useState(settings.min_salary ?? 3.0);
+  const [salaryCurrency, setSalaryCurrency] = useState(settings.salary_currency ?? "INR_LPA");
+  const [salaryUnknownPolicy, setSalaryUnknownPolicy] = useState(settings.salary_unknown_policy ?? "Allow");
+  const [scamMode, setScamMode] = useState(settings.scam_mode ?? "balanced");
+  const [startupW, setStartupW] = useState(settings.startup_w ?? "Medium");
+  const [remoteW, setRemoteW] = useState(settings.remote_w ?? "Medium");
+  const [salaryW, setSalaryW] = useState(settings.salary_w ?? "Medium");
+  const [trustW, setTrustW] = useState(settings.trust_w ?? "Medium");
+  const [automationMode, setAutomationMode] = useState(settings.automation_mode ?? "Assisted Apply");
+
   // Diagnostic state
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null); // success, failed, null
@@ -55,6 +67,16 @@ const SettingsPanel = () => {
     setSourceJooble(settings.source_jooble);
     setSourceManualImport(settings.source_manual_import);
     setSourceCompanyCareers(settings.source_company_careers);
+    setMinMatchPercent(settings.min_match_percent ?? 50.0);
+    setMinSalary(settings.min_salary ?? 3.0);
+    setSalaryCurrency(settings.salary_currency ?? "INR_LPA");
+    setSalaryUnknownPolicy(settings.salary_unknown_policy ?? "Allow");
+    setScamMode(settings.scam_mode ?? "balanced");
+    setStartupW(settings.startup_w ?? "Medium");
+    setRemoteW(settings.remote_w ?? "Medium");
+    setSalaryW(settings.salary_w ?? "Medium");
+    setTrustW(settings.trust_w ?? "Medium");
+    setAutomationMode(settings.automation_mode ?? "Assisted Apply");
   }, [settings]);
 
   const handleSave = async (e) => {
@@ -68,7 +90,17 @@ const SettingsPanel = () => {
       source_adzuna: sourceAdzuna,
       source_jooble: sourceJooble,
       source_manual_import: sourceManualImport,
-      source_company_careers: sourceCompanyCareers
+      source_company_careers: sourceCompanyCareers,
+      min_match_percent: minMatchPercent,
+      min_salary: minSalary,
+      salary_currency: salaryCurrency,
+      salary_unknown_policy: salaryUnknownPolicy,
+      scam_mode: scamMode,
+      startup_w: startupW,
+      remote_w: remoteW,
+      salary_w: salaryW,
+      trust_w: trustW,
+      automation_mode: automationMode
     };
 
     let activeKey = "";
@@ -388,6 +420,162 @@ const SettingsPanel = () => {
                     placeholder="http://localhost:11434"
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono text-white focus:outline-none"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* INGESTION & PIPELINE CONFIGURATION */}
+            <div className="border-t border-slate-800 pt-6 space-y-6">
+              <h3 className="font-bold text-slate-200 text-base border-b border-slate-800 pb-3 flex items-center gap-2">
+                <FaRobot className="text-cyan-400" /> Strict Ingestion Pipeline & Scoring
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Min Match Percent */}
+                <div>
+                  <label className="text-slate-400 text-xs font-bold uppercase tracking-wider block mb-1.5">
+                    Min Skill Match Alignment: <span className="text-cyan-400 font-extrabold">{minMatchPercent}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={minMatchPercent}
+                    onChange={(e) => setMinMatchPercent(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Jobs scoring below this skill compatibility matching threshold are discarded on fetch.</p>
+                </div>
+
+                {/* Scam Detection Level */}
+                <div>
+                  <label className="text-slate-400 text-xs font-bold uppercase tracking-wider block mb-1.5">
+                    Scam Detection Mode
+                  </label>
+                  <select
+                    value={scamMode}
+                    onChange={(e) => setScamMode(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                  >
+                    <option value="strict">Strict (Instantly discard all suspected scams)</option>
+                    <option value="balanced">Balanced (Ingest but flag with warning metrics)</option>
+                    <option value="off">Off (Disable AI scam scanner)</option>
+                  </select>
+                </div>
+
+                {/* Min Salary & Currency */}
+                <div className="space-y-3 md:col-span-2">
+                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block">
+                    Salary Filter Requirements
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Minimum Value</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={minSalary}
+                        onChange={(e) => setMinSalary(parseFloat(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Currency Format</label>
+                      <select
+                        value={salaryCurrency}
+                        onChange={(e) => setSalaryCurrency(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                      >
+                        <option value="INR_LPA">INR (Lakhs Per Annum)</option>
+                        <option value="USD">USD ($ Per Annum)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Unknown Salary Policy</label>
+                      <select
+                        value={salaryUnknownPolicy}
+                        onChange={(e) => setSalaryUnknownPolicy(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                      >
+                        <option value="Allow">Allow (Import anyway)</option>
+                        <option value="Warn">Warn (Import with warnings)</option>
+                        <option value="Hide">Hide (Discard if undisclosed)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Opportunity Scoring Priority Weights */}
+                <div className="md:col-span-2 space-y-3">
+                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block">
+                    Opportunity Scoring Priority Weights
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Startup Weight</label>
+                      <select
+                        value={startupW}
+                        onChange={(e) => setStartupW(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Remote Weight</label>
+                      <select
+                        value={remoteW}
+                        onChange={(e) => setRemoteW(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Salary Weight</label>
+                      <select
+                        value={salaryW}
+                        onChange={(e) => setSalaryW(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-slate-500 text-[10px] font-bold block mb-1">Trust Weight</label>
+                      <select
+                        value={trustW}
+                        onChange={(e) => setTrustW(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submission Engine Mode */}
+                <div className="md:col-span-2">
+                  <label className="text-slate-400 text-xs font-bold uppercase tracking-wider block mb-1.5">
+                    Application submission automation mode
+                  </label>
+                  <select
+                    value={automationMode}
+                    onChange={(e) => setAutomationMode(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none cursor-pointer focus:border-cyan-500"
+                  >
+                    <option value="Assisted Apply">Assisted Apply (Prefills form & generates console scripts)</option>
+                    <option value="Disabled">Disabled (Direct manual apply only)</option>
+                  </select>
                 </div>
               </div>
             </div>

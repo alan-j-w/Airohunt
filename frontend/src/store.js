@@ -1,10 +1,4 @@
 import { create } from "zustand";
-import {
-    addEdge,
-    applyNodeChanges,
-    applyEdgeChanges,
-    MarkerType,
-} from 'reactflow';
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
@@ -59,6 +53,16 @@ export const useStore = create((set, get) => ({
         source_jooble: true,
         source_manual_import: false,
         source_company_careers: true,
+        min_match_percent: 50.0,
+        min_salary: 3.0,
+        salary_currency: "INR_LPA",
+        salary_unknown_policy: "Allow",
+        scam_mode: "balanced",
+        startup_w: "Medium",
+        remote_w: "Medium",
+        salary_w: "Medium",
+        trust_w: "Medium",
+        automation_mode: "Assisted Apply",
     },
     
     // Jobs Pool State
@@ -96,76 +100,9 @@ export const useStore = create((set, get) => ({
     // Career Memory metrics
     metrics: { total_submitted: 0, interview_rate: 0.0, offer_rate: 0.0, best_source: "N/A", best_resume: "N/A", audit_logs: [] },
 
-    // React Flow Canvas States
-    nodes: [],
-    edges: [],
-    nodeIDs: {},
-
     // Setters
     setActiveTab: (tab) => set({ activeTab: tab }),
     setLoading: (loading) => set({ isLoading: loading }),
-
-    // React Flow Actions
-    getNodeID: (type) => {
-        const newIDs = { ...get().nodeIDs };
-        if (newIDs[type] === undefined) {
-            newIDs[type] = 0;
-        }
-        newIDs[type] += 1;
-        set({ nodeIDs: newIDs });
-        return `${type}-${newIDs[type]}`;
-    },
-    
-    addNode: (node) => {
-        set({
-            nodes: [...get().nodes, node]
-        });
-        get().savePipeline();
-    },
-    
-    onNodesChange: (changes) => {
-        set({
-            nodes: applyNodeChanges(changes, get().nodes),
-        });
-    },
-    
-    onEdgesChange: (changes) => {
-        set({
-            edges: applyEdgeChanges(changes, get().edges),
-        });
-    },
-    
-    onConnect: (connection) => {
-        set({
-            edges: addEdge(
-                {
-                    ...connection, 
-                    type: 'smoothstep', 
-                    animated: true, 
-                    markerEnd: { type: MarkerType.Arrow, height: 20, width: 20, color: "#06b6d4" },
-                    style: { stroke: "#06b6d4", strokeWidth: 2 }
-                }, 
-                get().edges
-            ),
-        });
-        get().savePipeline();
-    },
-    
-    updateNodeField: (nodeId, fieldName, fieldValue) => {
-        set({
-            nodes: get().nodes.map((node) => {
-                if (node.id === nodeId) {
-                    node.data = { ...node.data, [fieldName]: fieldValue };
-                }
-                return node;
-            }),
-        });
-        get().savePipeline();
-    },
-
-    setNodesAndEdges: (nodes, edges) => {
-        set({ nodes: nodes || [], edges: edges || [] });
-    },
 
     // ─────────────── API ACTIONS ───────────────
 
@@ -314,38 +251,11 @@ export const useStore = create((set, get) => ({
         }
     },
 
-    // Save Pipeline Workflow Canvas Layout
-    savePipeline: async () => {
-        const payload = {
-            nodes: get().nodes,
-            edges: get().edges,
-        };
-        try {
-            await fetch(`${API_BASE}/pipeline/save`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-        } catch (error) {
-            console.error("Error saving pipeline layout:", error);
-        }
-    },
+    // Save Pipeline visual canvas layout placeholder
+    savePipeline: async () => {},
 
-    // Load Pipeline Workflow Canvas Layout
-    loadPipeline: async () => {
-        try {
-            const res = await fetch(`${API_BASE}/pipeline/load`);
-            if (res.ok) {
-                const data = await res.json();
-                set({ 
-                    nodes: data.nodes || [], 
-                    edges: data.edges || [] 
-                });
-            }
-        } catch (error) {
-            console.error("Error loading pipeline layout:", error);
-        }
-    },
+    // Load Pipeline visual canvas layout placeholder
+    loadPipeline: async () => {},
 
     // Fetch AI settings
     fetchSettings: async () => {
@@ -640,6 +550,16 @@ export const useStore = create((set, get) => ({
                         source_jooble: true,
                         source_manual_import: false,
                         source_company_careers: true,
+                        min_match_percent: 50.0,
+                        min_salary: 3.0,
+                        salary_currency: "INR_LPA",
+                        salary_unknown_policy: "Allow",
+                        scam_mode: "balanced",
+                        startup_w: "Medium",
+                        remote_w: "Medium",
+                        salary_w: "Medium",
+                        trust_w: "Medium",
+                        automation_mode: "Assisted Apply",
                     },
                     jobs: [],
                     startups: [],
@@ -664,8 +584,6 @@ export const useStore = create((set, get) => ({
                     resumes: {},
                     queue: { applications: {}, audit_logs: [] },
                     metrics: { total_submitted: 0, interview_rate: 0.0, offer_rate: 0.0, best_source: "N/A", best_resume: "N/A", audit_logs: [] },
-                    nodes: [],
-                    edges: [],
                     activeTab: "dashboard"
                 });
                 return true;

@@ -13,7 +13,6 @@ function App() {
     profile,
     fetchProfile, 
     fetchJobs, 
-    loadPipeline,
     fetchSettings,
     fetchStartups,
     fetchResumes,
@@ -29,14 +28,13 @@ function App() {
       await fetchProfile();
       await fetchSettings();
       await fetchJobs();
-      await loadPipeline();
       await fetchStartups();
       await fetchResumes();
       await fetchQueue();
       await fetchMetrics();
     };
     initData();
-  }, [fetchProfile, fetchJobs, loadPipeline, fetchSettings, fetchStartups, fetchResumes, fetchQueue, fetchMetrics]);
+  }, [fetchProfile, fetchJobs, fetchSettings, fetchStartups, fetchResumes, fetchQueue, fetchMetrics]);
 
   // Trigger Onboarding modal if profile is new/empty
   useEffect(() => {
