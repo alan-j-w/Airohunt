@@ -98,6 +98,55 @@ async def hydrate_job_description(url: str, current_snippet: str) -> str:
     if not url or "adzuna.com" in url or "jooble.org" in url or "google.com" in url:
         return current_snippet
         
+    # Check if ATS URLs to leverage native API endpoints
+    clean_url = url.split("?")[0]
+    parts = [p for p in clean_url.split("/") if p.strip()]
+    
+    # 1. Greenhouse Board API Hydration
+    if "boards.greenhouse.io" in url and "jobs" in parts:
+        try:
+            # Expected pattern: https://boards.greenhouse.io/{board_token}/jobs/{job_id}
+            idx_jobs = parts.index("jobs")
+            if idx_jobs > 0 and len(parts) > idx_jobs + 1:
+                board_token = parts[idx_jobs - 1]
+                job_id = parts[idx_jobs + 1]
+                api_url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}"
+                
+                async with httpx.AsyncClient(timeout=4.0) as client:
+                    resp = await client.get(api_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        html_content = data.get("content", "")
+                        if html_content:
+                            clean_text = extract_clean_text_from_html(html_content)
+                            if len(clean_text) > 100:
+                                return clean_text[:12000]
+        except Exception as e:
+            print(f"Failed direct Greenhouse API hydration for {url}: {e}")
+            
+    # 2. Lever Board API Hydration
+    elif "jobs.lever.co" in url and len(parts) >= 5:
+        try:
+            # Expected pattern: https://jobs.lever.co/{company}/{job_id}
+            company = parts[3]
+            job_id = parts[4]
+            api_url = f"https://api.lever.co/v0/postings/{company}/{job_id}"
+            
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(api_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    desc_plain = data.get("descriptionPlain", "")
+                    req_plain = data.get("requirementsPlain", "")
+                    lists_plain = data.get("additionalPlain", "")
+                    
+                    full_desc = "\n\n".join([p for p in [desc_plain, req_plain, lists_plain] if p])
+                    if len(full_desc) > 100:
+                        return full_desc[:12000]
+        except Exception as e:
+            print(f"Failed direct Lever API hydration for {url}: {e}")
+
+    # Standard fallback
     if len(current_snippet) > 600:
         return current_snippet
         
@@ -119,6 +168,7 @@ async def hydrate_job_description(url: str, current_snippet: str) -> str:
         print(f"Failed to hydrate job description from {url}: {e}")
         
     return current_snippet
+
 
 def get_active_providers() -> List[str]:
     # Default active sources
@@ -248,100 +298,47 @@ def _load_pairwise_stats() -> dict:
     return pairwise_stats
 
 async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = None) -> List[Job]:
-    # Load pipeline nodes from file if not supplied (for background/direct callers)
-    if pipeline_nodes is None:
-        pipeline_data = load_json_file("pipeline.json", {"nodes": [], "edges": []})
-        pipeline_nodes = pipeline_data.get("nodes", [])
+    # 0. Load settings configurations directly from settings.json
+    settings_data = load_json_file("settings.json", {})
+    min_match_percent = float(settings_data.get("min_match_percent", 50.0))
+    min_salary = float(settings_data.get("min_salary", 3.0))
+    salary_currency = settings_data.get("salary_currency", "INR_LPA")
+    salary_unknown_policy = settings_data.get("salary_unknown_policy", "Allow")
+    scam_mode = settings_data.get("scam_mode", "balanced").lower()
+    startup_w = settings_data.get("startup_w", "Medium")
+    remote_w = settings_data.get("remote_w", "Medium")
+    salary_w = settings_data.get("salary_w", "Medium")
+    trust_w = settings_data.get("trust_w", "Medium")
 
-    # 0. Extract Canvas configurations from nodes
-    min_match_percent = 0.0
-    
-    # Salary Filter settings
-    min_salary = 0.0
-    salary_currency = "USD"
-    salary_unknown_policy = "Allow"  # Allow, Warn, Hide
-    
-    # Scam Filter settings
-    scam_mode = "balanced"  # Strict, Balanced, Off
-    
-    # Opportunity Ranker settings
-    startup_w = "Medium"
-    remote_w = "Medium"
-    salary_w = "Medium"
-    trust_w = "Medium"
-    
-    # Enabled sources toggles (from jobSources node)
-    enabled_sources = None  
-    
-    # AI preference text override
-    canvas_instructions = ""
+    # Ingestion sources override
+    enabled_sources = []
+    if settings_data.get("source_adzuna", True):
+        enabled_sources.append("adzuna")
+    if settings_data.get("source_jooble", True):
+        enabled_sources.append("jooble")
+    if settings_data.get("source_manual_import", False):
+        enabled_sources.append("manual_import")
+    if settings_data.get("source_company_careers", True):
+        enabled_sources.append("company_careers")
 
-    for node in pipeline_nodes:
-        ntype = node.get("type")
-        ndata = node.get("data", {})
-        
-        if ntype == "skillMatch":
-            min_match_percent = float(ndata.get("minMatchPercent", 0.0))
-            
-        elif ntype == "salaryFilter":
-            min_salary = float(ndata.get("minSalary", 0.0))
-            salary_currency = ndata.get("currency", "USD")
-            salary_unknown_policy = ndata.get("salaryUnknownPolicy", "Allow")
-            
-        elif ntype == "scamFilter":
-            scam_mode = ndata.get("scamMode", "balanced").lower()
-            
-        elif ntype == "opportunityRanker":
-            startup_w = ndata.get("startupWeight", "Medium")
-            remote_w = ndata.get("remoteWeight", "Medium")
-            salary_w = ndata.get("salaryWeight", "Medium")
-            trust_w = ndata.get("trustWeight", "Medium")
-            
-        elif ntype == "jobSources":
-            enabled_sources = []
-            if ndata.get("sourceAdzuna", True):
-                enabled_sources.append("adzuna")
-            if ndata.get("sourceJooble", True):
-                enabled_sources.append("jooble")
-            if ndata.get("sourceManualImport", False):
-                enabled_sources.append("manual_import")
-            if ndata.get("sourceCompanyCareers", True):
-                enabled_sources.append("company_careers")
-                
-        elif ntype == "preferenceFilter":
-            canvas_instructions = ndata.get("aiInstructions", "")
-
-    # 1. Parse user natural language instructions (canvas override has precedence)
+    # 1. Parse user natural language instructions
     user_instructions = getattr(profile, "ai_instructions", "")
-    if canvas_instructions.strip():
-        user_instructions = canvas_instructions
-        
     parsed_preferences = await parse_user_instructions(user_instructions)
     
     # Extract search criteria
     keywords = "Software Engineer"
+    if profile.target_roles:
+        keywords = profile.target_roles[0]
+        
     location_pref = "Remote"
-    
-    # Prefer values from pipeline trigger node if available
-    for node in pipeline_nodes:
-        if node.get("type") == "jobSearchTrigger":
-            node_data = node.get("data", {})
-            keywords = node_data.get("keywords", keywords)
-            location_pref = node_data.get("location", location_pref)
-            break
-                
-    # Otherwise, check parsed preferences roles
+    if profile.location:
+        location_pref = profile.location
+        
     if parsed_preferences.get("preferred_roles") and keywords == "Software Engineer":
         keywords = parsed_preferences["preferred_roles"][0]
-        
-    if profile.location and location_pref == "Remote":
-        location_pref = profile.location
 
     # 2. Query enabled job sources in parallel
-    if enabled_sources is not None:
-        active_sources = enabled_sources
-    else:
-        active_sources = get_active_providers()
+    active_sources = enabled_sources if enabled_sources else get_active_providers()
         
     providers = []
     
@@ -602,79 +599,33 @@ async def scrape_more_jobs(profile: UserProfile, existing_jobs: List[dict], pipe
         eval_profile.target_roles = [override_keywords.strip()]
         eval_profile.skills = [override_keywords.strip()]
 
-    if pipeline_nodes is None:
-        pipeline_data = load_json_file("pipeline.json", {"nodes": [], "edges": []})
-        pipeline_nodes = pipeline_data.get("nodes", [])
+    # 0. Load settings configurations directly from settings.json
+    settings_data = load_json_file("settings.json", {})
+    min_match_percent = float(settings_data.get("min_match_percent", 50.0))
+    min_salary = float(settings_data.get("min_salary", 3.0))
+    salary_currency = settings_data.get("salary_currency", "INR_LPA")
+    salary_unknown_policy = settings_data.get("salary_unknown_policy", "Allow")
+    scam_mode = settings_data.get("scam_mode", "balanced").lower()
+    startup_w = settings_data.get("startup_w", "Medium")
+    remote_w = settings_data.get("remote_w", "Medium")
+    salary_w = settings_data.get("salary_w", "Medium")
+    trust_w = settings_data.get("trust_w", "Medium")
 
-    # 0. Extract Canvas configurations from nodes
-    min_match_percent = 0.0
-    
-    # Salary Filter settings
-    min_salary = 0.0
-    salary_currency = "USD"
-    salary_unknown_policy = "Allow"  # Allow, Warn, Hide
-    
-    # Scam Filter settings
-    scam_mode = "balanced"  # Strict, Balanced, Off
-    
-    # Opportunity Ranker settings
-    startup_w = "Medium"
-    remote_w = "Medium"
-    salary_w = "Medium"
-    trust_w = "Medium"
-    
-    # AI preference text override
-    canvas_instructions = ""
-
-    for node in pipeline_nodes:
-        ntype = node.get("type")
-        ndata = node.get("data", {})
-        
-        if ntype == "skillMatch":
-            min_match_percent = float(ndata.get("minMatchPercent", 0.0))
-            
-        elif ntype == "salaryFilter":
-            min_salary = float(ndata.get("minSalary", 0.0))
-            salary_currency = ndata.get("currency", "USD")
-            salary_unknown_policy = ndata.get("salaryUnknownPolicy", "Allow")
-            
-        elif ntype == "scamFilter":
-            scam_mode = ndata.get("scamMode", "balanced").lower()
-            
-        elif ntype == "opportunityRanker":
-            startup_w = ndata.get("startupWeight", "Medium")
-            remote_w = ndata.get("remoteWeight", "Medium")
-            salary_w = ndata.get("salaryWeight", "Medium")
-            trust_w = ndata.get("trustWeight", "Medium")
-            
-        elif ntype == "preferenceFilter":
-            canvas_instructions = ndata.get("aiInstructions", "")
-
-    # 1. Parse user natural language instructions (canvas override has precedence)
+    # 1. Parse user natural language instructions
     user_instructions = getattr(profile, "ai_instructions", "")
-    if canvas_instructions.strip():
-        user_instructions = canvas_instructions
-        
     parsed_preferences = await parse_user_instructions(user_instructions)
     
     # Extract search criteria
     keywords = "Software Engineer"
+    if eval_profile.target_roles:
+        keywords = eval_profile.target_roles[0]
+        
     location_pref = "Remote"
-    
-    # Prefer values from pipeline trigger node if available
-    for node in pipeline_nodes:
-        if node.get("type") == "jobSearchTrigger":
-            node_data = node.get("data", {})
-            keywords = node_data.get("keywords", keywords)
-            location_pref = node_data.get("location", location_pref)
-            break
-                
-    # Otherwise, check parsed preferences roles
+    if eval_profile.location:
+        location_pref = eval_profile.location
+        
     if parsed_preferences.get("preferred_roles") and keywords == "Software Engineer":
         keywords = parsed_preferences["preferred_roles"][0]
-        
-    if eval_profile.location and location_pref == "Remote":
-        location_pref = eval_profile.location
 
     # Apply overrides if provided
     if override_keywords and override_keywords.strip():

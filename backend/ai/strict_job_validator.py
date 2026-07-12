@@ -1,11 +1,95 @@
 import os
 import re
 import uuid
+import socket
+import urllib.request
+import urllib.parse
+import json
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
 from models import Job, UserProfile
 from utils import load_json_file, save_json_file
 from geo_utils import get_state_from_city
+
+# Cache for RDAP domain registrations to minimize HTTP overhead
+RDAP_CACHE: Dict[str, Tuple[bool, int, str]] = {}
+
+def get_apex_domain(domain: str) -> str:
+    parts = domain.split(".")
+    if len(parts) <= 2:
+        return domain
+    # Check for common two-part TLDs (e.g. co.uk, com.in, org.in, net.in)
+    two_part_tlds = ["co", "com", "org", "net", "edu", "gov", "ac", "res"]
+    if parts[-2] in two_part_tlds and len(parts[-1]) == 2:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
+
+def get_domain_registration_age_days(url: str) -> Tuple[bool, int, str]:
+    """
+    Parses the domain from a URL, validates DNS resolution, and queries RDAP for registration age.
+    Returns (resolves_dns, age_in_days, registration_date_str).
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        domain = parsed.netloc.split(":")[0].lower().strip()
+        if not domain:
+            return False, -1, "Invalid domain"
+            
+        # Bypass common trusted aggregators and boards
+        trusted_hosts = [
+            "greenhouse.io", "lever.co", "ashbyhq.com", "workable.com", 
+            "smartrecruiters.com", "jooble", "adzuna", "google.com", 
+            "linkedin.com", "github.com", "microsoft.com", "indeed.com"
+        ]
+        if any(th in domain for th in trusted_hosts):
+            return True, 9999, "Trusted Aggregator/Board"
+            
+        # Extract apex domain for RDAP query
+        apex_domain = get_apex_domain(domain)
+        
+        # Check cache
+        if apex_domain in RDAP_CACHE:
+            return RDAP_CACHE[apex_domain]
+            
+        # 1. Verify DNS resolution on original domain
+        try:
+            socket.gethostbyname(domain)
+        except socket.gaierror:
+            res = (False, -1, "DNS Resolution Failed")
+            RDAP_CACHE[apex_domain] = res
+            return res
+            
+        # 2. Query RDAP endpoint on apex domain
+        rdap_url = f"https://rdap.org/domain/{apex_domain}"
+        req = urllib.request.Request(
+            rdap_url, 
+            headers={"User-Agent": "Airohunt/1.0 (Domain Trust Validator)"}
+        )
+        # 1.5 seconds timeout to keep it fast
+        with urllib.request.urlopen(req, timeout=1.5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                events = data.get("events", [])
+                reg_date_str = None
+                for ev in events:
+                    if ev.get("eventAction") in ["registration", "creation"]:
+                        reg_date_str = ev.get("eventDate")
+                        break
+                        
+                if reg_date_str:
+                    date_clean = reg_date_str.split("T")[0]
+                    reg_date = datetime.strptime(date_clean, "%Y-%m-%d")
+                    age_days = (datetime.now() - reg_date).days
+                    res = (True, age_days, reg_date_str)
+                    RDAP_CACHE[apex_domain] = res
+                    return res
+                    
+        res = (True, 999, "No creation date found")
+        RDAP_CACHE[apex_domain] = res
+        return res
+    except Exception as e:
+        # Graceful fallback to avoid locking validation in case of timeout or API error
+        return True, 999, f"RDAP Check Error: {str(e)}"
 
 # Filenames for local persistence
 BLACKLIST_FILE = "company_blacklist.json"
@@ -125,6 +209,35 @@ class StrictJobValidationEngine:
 
         return False, ""
 
+    def _verify_domain_trust(self, job: Job) -> Tuple[float, List[str], List[str], bool]:
+        """
+        Runs DNS and RDAP WHOIS domain trust checks.
+        Returns (penalty_score, reasons, warnings, is_scam).
+        """
+        penalty = 0.0
+        reasons = []
+        warnings = []
+        is_scam = False
+        
+        resolves, age_days, info = get_domain_registration_age_days(job.url)
+        
+        if not resolves:
+            penalty = -30.0
+            warnings.append(f"⚠ Domain DNS resolution failed: {info} (potential fake/dead link)")
+            is_scam = True
+        elif age_days >= 0 and age_days < 90:
+            penalty = -25.0
+            warnings.append(f"⚠ Newly registered domain: {age_days} days old (registered: {info[:10]})")
+            settings_data = load_json_file("settings.json", {})
+            scam_mode = settings_data.get("scam_mode", "balanced").lower()
+            if scam_mode == "strict":
+                is_scam = True
+        elif age_days >= 0 and age_days < 180:
+            penalty = -10.0
+            warnings.append(f"⚠ Recently registered domain: {age_days} days old")
+            
+        return penalty, reasons, warnings, is_scam
+
     def validate_job(self, job: Job) -> Job:
         """
         Validates a single job. Calculates score, confidence, and assigns the validation tier.
@@ -142,7 +255,21 @@ class StrictJobValidationEngine:
             job.validation_confidence = self._calculate_confidence(job)
             return job
 
-        # 2. Score Calculation Components
+        # 2. Run DNS and RDAP WHOIS domain trust check
+        domain_penalty, domain_reasons, domain_warns, domain_is_scam = self._verify_domain_trust(job)
+        if domain_is_scam:
+            job.is_scam = True
+            job.scam_reason = domain_warns[0] if domain_warns else "Domain verification failed"
+            settings_data = load_json_file("settings.json", {})
+            scam_mode = settings_data.get("scam_mode", "balanced").lower()
+            if scam_mode == "strict":
+                job.validation_score = 0.0
+                job.validation_tier = "D"
+                job.rejection_reasons = ["Domain DNS/Trust Verification Failed"]
+                job.validation_confidence = self._calculate_confidence(job)
+                return job
+
+        # 3. Score Calculation Components
         role_score, role_reasons = self._score_role_match(job)
         skill_score, skill_reasons = self._score_skill_match(job)
         loc_score, loc_reasons = self._score_location_match(job)
@@ -160,6 +287,9 @@ class StrictJobValidationEngine:
 
         # Accumulate scores
         base_score = role_score + skill_score + loc_score + exp_score + sal_score + comp_score
+        
+        # Apply domain trust penalty
+        base_score = max(0.0, base_score + domain_penalty)
         
         # Add Source Quality Match boost (+5 pts max)
         source_quality_boost = self._get_source_quality_boost(job)
@@ -179,7 +309,7 @@ class StrictJobValidationEngine:
         if source_quality_boost > 0:
             validation_reasons.append("✓ Direct Application Source")
             
-        validation_warnings.extend(exp_warns + sal_warns + comp_warns + rule_warns)
+        validation_warnings.extend(exp_warns + sal_warns + comp_warns + rule_warns + domain_warns)
 
         # Update Job model
         job.validation_score = round(final_score, 1)

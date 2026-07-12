@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from datetime import datetime
 
-from models import UserProfile, Job, Pipeline, AISettings, JobFilterState
+from models import UserProfile, Job, AISettings, JobFilterState
 from job_scraper import generate_jobs_list
 from resume_tailor import process_resume_tailoring
 from ai.provider_manager import ProviderManager
@@ -31,7 +31,6 @@ app.add_middleware(
 
 # Files for persistent local storage (Free local-first SaaS concept)
 PROFILE_FILE = "profile.json"
-PIPELINE_FILE = "pipeline.json"
 JOBS_STORE_FILE = "jobs_store.json"
 SETTINGS_FILE = "settings.json"
 RESUME_PROFILES_FILE = "resume_profiles.json"
@@ -214,8 +213,7 @@ async def get_all_jobs() -> List[Job]:
         
     if needs_scrape:
         print("Cache expired or empty. Scraping live jobs...")
-        pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
-        jobs_list = await generate_jobs_list(current_profile, pipeline.get("nodes", []))
+        jobs_list = await generate_jobs_list(current_profile)
         
         jobs_list_dict = {j.id: j for j in jobs_list}
         for db_job_dict in jobs_db:
@@ -262,8 +260,6 @@ async def scrape_more_jobs_endpoint(payload: dict = None):
     keywords = payload.get("keywords")
     location = payload.get("location")
 
-    pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
-    
     global jobs_db
     jobs_db = load_json_file(JOBS_STORE_FILE, [])
     
@@ -274,7 +270,6 @@ async def scrape_more_jobs_endpoint(payload: dict = None):
     new_jobs = await scrape_more_jobs(
         current_profile, 
         existing_jobs, 
-        pipeline.get("nodes", []),
         override_keywords=keywords,
         override_location=location
     )
@@ -358,15 +353,12 @@ async def apply_job(data: dict):
         base_resume_text = current_profile.base_resume
         selected_version_key = "profile base"
     
-    # 2. Retrieve dynamic model provider and automation mode from pipeline.json
-    model_provider = "local"
-    pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
-    automation_mode = "Assisted Apply" # Default
-    for node in pipeline.get("nodes", []):
-        if node.get("type") == "resumeTailor":
-            model_provider = node.get("data", {}).get("modelType", "local")
-        elif node.get("type") == "appSubmit":
-            automation_mode = node.get("data", {}).get("automationMode", "Assisted Apply")
+    # 2. Retrieve dynamic model provider and automation mode from settings.json
+    global current_settings
+    settings_data = load_json_file(SETTINGS_FILE, current_settings.dict())
+    current_settings = AISettings(**settings_data)
+    model_provider = current_settings.active_provider or "local"
+    automation_mode = current_settings.automation_mode or "Assisted Apply"
 
     # 3. Tailor the selected resume version
     score, tailored_resume = await process_resume_tailoring(
@@ -433,15 +425,7 @@ async def apply_job(data: dict):
         "autofill_data": payload
     }
 
-@app.post("/api/pipeline/save")
-async def save_pipeline(pipeline: Pipeline):
-    save_json_file(PIPELINE_FILE, pipeline.dict())
-    return {"status": "success", "pipeline": pipeline}
-
-@app.get("/api/pipeline/load")
-async def load_pipeline():
-    pipeline = load_json_file(PIPELINE_FILE, {"nodes": [], "edges": []})
-    return pipeline
+# Pipeline endpoints removed as part of canvas cleanup
 
 
 @app.get("/api/validation/report")
@@ -952,16 +936,7 @@ Return ONLY the raw JSON list. Do not write any explanation, introduction, markd
     return await get_startups_radar()
 
 
-# Backwards compatibility endpoint
-@app.post("/pipelines/parse")
-async def parse_pipeline(data: dict):
-    nodes = data.get("nodes", [])
-    edges = data.get("edges", [])
-    return {
-        "num_nodes": len(nodes),
-        "num_edges": len(edges),
-        "is_dag": True
-    }
+# Backwards compatibility endpoint removed
 
 # ─────────────── RESUME VERSION ENDPOINTS ───────────────
 @app.get("/api/profile/resumes")
@@ -1126,7 +1101,6 @@ async def get_validation_report():
 async def reset_all_data():
     files_to_delete = [
         PROFILE_FILE, 
-        PIPELINE_FILE, 
         JOBS_STORE_FILE, 
         SETTINGS_FILE, 
         RESUME_PROFILES_FILE, 

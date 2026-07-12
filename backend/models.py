@@ -66,10 +66,6 @@ class Job(BaseModel):
     rejection_reasons: List[str] = Field(default_factory=list)
 
 
-class Pipeline(BaseModel):
-    nodes: List[dict] = Field(default_factory=list)
-    edges: List[dict] = Field(default_factory=list)
-
 class AISettings(BaseModel):
     active_provider: str = "openai"
     openai_api_key: str = ""
@@ -82,6 +78,18 @@ class AISettings(BaseModel):
     source_jooble: bool = True
     source_manual_import: bool = False
     source_company_careers: bool = True
+
+    # Ingestion & scoring pipeline parameters
+    min_match_percent: float = 50.0
+    min_salary: float = 3.0
+    salary_currency: str = "INR_LPA"
+    salary_unknown_policy: str = "Allow"
+    scam_mode: str = "balanced"
+    startup_w: str = "Medium"
+    remote_w: str = "Medium"
+    salary_w: str = "Medium"
+    trust_w: str = "Medium"
+    automation_mode: str = "Assisted Apply"
 
 
 class JobFilterState(BaseModel):
