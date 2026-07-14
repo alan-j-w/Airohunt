@@ -98,34 +98,37 @@ async def hydrate_job_description(url: str, current_snippet: str) -> str:
     if not url or "adzuna.com" in url or "jooble.org" in url or "google.com" in url:
         return current_snippet
         
-    # Check if ATS URLs to leverage native API endpoints
+    # Standard split by "/" including empty elements for stable indices
     clean_url = url.split("?")[0]
-    parts = [p for p in clean_url.split("/") if p.strip()]
+    parts = clean_url.split("/")
+    if len(parts) < 4:
+        return current_snippet
+        
+    host = parts[2].lower()
     
     # 1. Greenhouse Board API Hydration
-    if "boards.greenhouse.io" in url and "jobs" in parts:
+    if "boards.greenhouse.io" in host and len(parts) >= 6 and "jobs" in parts:
         try:
             # Expected pattern: https://boards.greenhouse.io/{board_token}/jobs/{job_id}
             idx_jobs = parts.index("jobs")
-            if idx_jobs > 0 and len(parts) > idx_jobs + 1:
-                board_token = parts[idx_jobs - 1]
-                job_id = parts[idx_jobs + 1]
-                api_url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}"
-                
-                async with httpx.AsyncClient(timeout=4.0) as client:
-                    resp = await client.get(api_url)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        html_content = data.get("content", "")
-                        if html_content:
-                            clean_text = extract_clean_text_from_html(html_content)
-                            if len(clean_text) > 100:
-                                return clean_text[:12000]
+            board_token = parts[idx_jobs - 1]
+            job_id = parts[idx_jobs + 1]
+            api_url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs/{job_id}"
+            
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(api_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    html_content = data.get("content", "")
+                    if html_content:
+                        clean_text = extract_clean_text_from_html(html_content)
+                        if len(clean_text) > 100:
+                            return clean_text[:12000]
         except Exception as e:
             print(f"Failed direct Greenhouse API hydration for {url}: {e}")
             
     # 2. Lever Board API Hydration
-    elif "jobs.lever.co" in url and len(parts) >= 5:
+    elif "jobs.lever.co" in host and len(parts) >= 5:
         try:
             # Expected pattern: https://jobs.lever.co/{company}/{job_id}
             company = parts[3]
@@ -145,6 +148,53 @@ async def hydrate_job_description(url: str, current_snippet: str) -> str:
                         return full_desc[:12000]
         except Exception as e:
             print(f"Failed direct Lever API hydration for {url}: {e}")
+            
+    # 3. Ashby Board API Hydration
+    elif "jobs.ashbyhq.com" in host and len(parts) >= 5:
+        try:
+            # Expected pattern: https://jobs.ashbyhq.com/{company}/{job_id}
+            company = parts[3]
+            job_id = parts[4]
+            api_url = f"https://api.ashbyhq.com/posting-api/job-board/{company}"
+            
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(api_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for posting in data.get("jobs", []):
+                        if posting.get("id") == job_id:
+                            desc_html = posting.get("descriptionHtml", "")
+                            if desc_html:
+                                clean_text = extract_clean_text_from_html(desc_html)
+                                if len(clean_text) > 100:
+                                    return clean_text[:12000]
+        except Exception as e:
+            print(f"Failed direct Ashby API hydration for {url}: {e}")
+            
+    # 4. Workable Board API Hydration
+    elif "apply.workable.com" in host and "j" in parts:
+        try:
+            # Expected pattern: https://apply.workable.com/{company}/j/{shortcode}
+            idx_j = parts.index("j")
+            if idx_j > 0 and len(parts) > idx_j + 1:
+                company = parts[idx_j - 1]
+                shortcode = parts[idx_j + 1]
+                api_url = f"https://apply.workable.com/api/v1/widget/accounts/{company}?details=true"
+                
+                async with httpx.AsyncClient(timeout=4.0) as client:
+                    resp = await client.get(api_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for posting in data.get("jobs", []):
+                            if posting.get("shortcode") == shortcode:
+                                desc = posting.get("description", "")
+                                reqs = posting.get("requirements", "")
+                                full_html = f"{desc}\n\n{reqs}"
+                                clean_text = extract_clean_text_from_html(full_html)
+                                if len(clean_text) > 100:
+                                    return clean_text[:12000]
+        except Exception as e:
+            print(f"Failed direct Workable API hydration for {url}: {e}")
 
     # Standard fallback
     if len(current_snippet) > 600:
