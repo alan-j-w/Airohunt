@@ -11,8 +11,9 @@ from models import Job, UserProfile
 from utils import load_json_file, save_json_file
 from geo_utils import get_state_from_city
 
-# Cache for RDAP domain registrations to minimize HTTP overhead
-RDAP_CACHE: Dict[str, Tuple[bool, int, str]] = {}
+# Import Database cache manager
+from database import AirohuntDatabase
+db = AirohuntDatabase()
 
 def get_apex_domain(domain: str) -> str:
     parts = domain.split(".")
@@ -27,7 +28,7 @@ def get_apex_domain(domain: str) -> str:
 def get_domain_registration_age_days(url: str) -> Tuple[bool, int, str]:
     """
     Parses the domain from a URL, validates DNS resolution, and queries RDAP for registration age.
-    Returns (resolves_dns, age_in_days, registration_date_str).
+    Reads and stores lookup records persistently in the SQLite database.
     """
     try:
         parsed = urllib.parse.urlparse(url)
@@ -47,16 +48,22 @@ def get_domain_registration_age_days(url: str) -> Tuple[bool, int, str]:
         # Extract apex domain for RDAP query
         apex_domain = get_apex_domain(domain)
         
-        # Check cache
-        if apex_domain in RDAP_CACHE:
-            return RDAP_CACHE[apex_domain]
+        # Check SQLite cache
+        cached = db.get_rdap_cache(apex_domain)
+        if cached:
+            try:
+                cached_date = datetime.fromisoformat(cached["cached_at"])
+                if (datetime.now() - cached_date).days < 30:
+                    return cached["resolves"], cached["age_days"], cached["info"]
+            except Exception:
+                pass
             
         # 1. Verify DNS resolution on original domain
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
             res = (False, -1, "DNS Resolution Failed")
-            RDAP_CACHE[apex_domain] = res
+            db.save_rdap_cache(apex_domain, False, -1, "DNS Resolution Failed")
             return res
             
         # 2. Query RDAP endpoint on apex domain
@@ -80,13 +87,11 @@ def get_domain_registration_age_days(url: str) -> Tuple[bool, int, str]:
                     date_clean = reg_date_str.split("T")[0]
                     reg_date = datetime.strptime(date_clean, "%Y-%m-%d")
                     age_days = (datetime.now() - reg_date).days
-                    res = (True, age_days, reg_date_str)
-                    RDAP_CACHE[apex_domain] = res
-                    return res
+                    db.save_rdap_cache(apex_domain, True, age_days, reg_date_str)
+                    return True, age_days, reg_date_str
                     
-        res = (True, 999, "No creation date found")
-        RDAP_CACHE[apex_domain] = res
-        return res
+        db.save_rdap_cache(apex_domain, True, 999, "No creation date found")
+        return True, 999, "No creation date found"
     except Exception as e:
         # Graceful fallback to avoid locking validation in case of timeout or API error
         return True, 999, f"RDAP Check Error: {str(e)}"
@@ -624,30 +629,55 @@ def rank_duplicate_sources(job: Job) -> int:
         return 1
     return 2
 
+from difflib import SequenceMatcher
+
+def is_similar_title(t1: str, t2: str) -> bool:
+    """Helper method to determine if two titles are semantically similar."""
+    t1_clean = re.sub(r'\(.*?\)|\[.*?\]', '', t1.lower())
+    t2_clean = re.sub(r'\(.*?\)|\[.*?\]', '', t2.lower())
+    t1_clean = " ".join(t1_clean.split())
+    t2_clean = " ".join(t2_clean.split())
+    if t1_clean == t2_clean:
+        return True
+    return SequenceMatcher(None, t1_clean, t2_clean).ratio() >= 0.82
+
 def deduplicate_jobs(jobs: List[Job]) -> Tuple[List[Job], int]:
     """
-    Groups jobs by (title, company) and retains the one with the highest quality source.
+    Groups jobs by company and similar titles using fuzzy title matching, retaining the highest quality source.
     Returns (deduplicated_jobs, duplicates_removed_count).
     """
-    grouped: Dict[Tuple[str, str], List[Job]] = {}
+    by_company: Dict[str, List[Job]] = {}
     for job in jobs:
-        key = (job.title.lower().strip(), job.company.lower().strip())
-        if key not in grouped:
-            grouped[key] = []
-        grouped[key].append(job)
-        
+        comp = job.company.lower().strip()
+        if comp not in by_company:
+            by_company[comp] = []
+        by_company[comp].append(job)
+
     deduplicated = []
     removed_count = 0
-    
-    for key, job_list in grouped.items():
-        if len(job_list) == 1:
-            deduplicated.append(job_list[0])
-        else:
-            # Sort by rank descending, then match score descending
-            job_list.sort(key=lambda x: (rank_duplicate_sources(x), x.match_score), reverse=True)
-            deduplicated.append(job_list[0])
-            removed_count += len(job_list) - 1
-            
+
+    for company, comp_jobs in by_company.items():
+        groups: List[List[Job]] = []
+        for job in comp_jobs:
+            matched_group = None
+            for group in groups:
+                if is_similar_title(group[0].title, job.title):
+                    matched_group = group
+                    break
+            if matched_group is not None:
+                matched_group.append(job)
+            else:
+                groups.append([job])
+        
+        for group in groups:
+            if len(group) == 1:
+                deduplicated.append(group[0])
+            else:
+                # Sort by source quality rank descending, then match score descending
+                group.sort(key=lambda x: (rank_duplicate_sources(x), x.match_score), reverse=True)
+                deduplicated.append(group[0])
+                removed_count += len(group) - 1
+
     return deduplicated, removed_count
 
 

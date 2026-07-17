@@ -44,4 +44,8 @@ backend/startups_store.json
 backend/resume_profiles.json
 backend/*.json.corrupted
 backend/temp/
+backend/airohunt.db
+backend/airohunt.db-journal
+backend/*.migrated
+
 

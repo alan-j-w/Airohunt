@@ -4,6 +4,7 @@ import json
 import shutil
 import tempfile
 import threading
+import asyncio
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
@@ -18,6 +19,9 @@ from ai.resume_version_manager import ResumeVersionManager
 from automation.application_engine import ApplicationEngine
 from ai.strict_job_validator import StrictJobValidationEngine
 from geo_utils import get_standardized_city
+from database import AirohuntDatabase
+
+db = AirohuntDatabase()
 
 app = FastAPI()
 
@@ -76,7 +80,73 @@ settings_data = load_json_file(SETTINGS_FILE, current_settings.dict())
 current_settings = AISettings(**settings_data)
 
 # Load jobs store
-jobs_db = load_json_file(JOBS_STORE_FILE, [])
+jobs_db = []
+
+# Asynchronous background loop for scraping jobs
+async def background_scrape_loop():
+    while True:
+        try:
+            print("[Airohunt Background Crawler] Running periodic job crawl...")
+            # Load fresh profile
+            prof_data = load_json_file(PROFILE_FILE, current_profile.dict())
+            prof = UserProfile(**prof_data)
+            if prof.name and prof.target_roles:
+                new_jobs = await generate_jobs_list(prof)
+                for job in new_jobs:
+                    db.save_job(job)
+                print(f"[Airohunt Background Crawler] Successfully crawled and saved {len(new_jobs)} jobs.")
+        except Exception as e:
+            print(f"[Airohunt Background Crawler] Error during crawl: {e}")
+        # Sleep for 1 hour
+        await asyncio.sleep(3600)
+
+@app.on_event("startup")
+async def startup_event():
+    global jobs_db
+    # Migrate jobs from jobs_store.json to SQLite database if json exists
+    if os.path.exists(JOBS_STORE_FILE):
+        try:
+            json_jobs = load_json_file(JOBS_STORE_FILE, [])
+            if json_jobs:
+                print(f"[Airohunt DB Migration] Migrating {len(json_jobs)} jobs to SQLite database...")
+                for j_dict in json_jobs:
+                    try:
+                        job_obj = Job(**j_dict)
+                        db.save_job(job_obj)
+                    except Exception as e:
+                        print(f"[Airohunt DB Migration] Failed to migrate job: {e}")
+                # Rename the file to prevent re-migration
+                os.rename(JOBS_STORE_FILE, f"{JOBS_STORE_FILE}.migrated")
+        except Exception as e:
+            print(f"[Airohunt DB Migration] Error migrating jobs_store.json: {e}")
+
+    # Migrate application queue from application_queue.json to SQLite database if json exists
+    if os.path.exists(APPLICATION_QUEUE_FILE):
+        try:
+            json_queue = load_json_file(APPLICATION_QUEUE_FILE, {})
+            if json_queue:
+                apps = json_queue.get("applications", {})
+                print(f"[Airohunt DB Migration] Migrating {len(apps)} applications to SQLite database...")
+                for job_id, app_data in apps.items():
+                    try:
+                        db.save_application(app_data)
+                    except Exception as e:
+                        print(f"[Airohunt DB Migration] Failed to migrate application {job_id}: {e}")
+                
+                logs = json_queue.get("audit_logs", [])
+                print(f"[Airohunt DB Migration] Migrating {len(logs)} audit logs to SQLite database...")
+                for log in logs:
+                    try:
+                        db.add_audit_log(log)
+                    except Exception as e:
+                        print(f"[Airohunt DB Migration] Failed to migrate audit log: {e}")
+                # Rename the file
+                os.rename(APPLICATION_QUEUE_FILE, f"{APPLICATION_QUEUE_FILE}.migrated")
+        except Exception as e:
+            print(f"[Airohunt DB Migration] Error migrating application_queue.json: {e}")
+
+    # Start the background scrape worker task
+    asyncio.create_task(background_scrape_loop())
 
 # List of common keywords to check for skills auto-extraction
 SKILLS_KEYWORDS = [
@@ -192,63 +262,14 @@ async def upload_resume(file: UploadFile = File(...)):
 
 
 async def get_all_jobs() -> List[Job]:
-    global jobs_db
-    jobs_db = load_json_file(JOBS_STORE_FILE, [])
-    
-    cache_meta = load_json_file("cache_metadata.json", {})
-    last_scraped_str = cache_meta.get("last_scraped", "")
-    
-    needs_scrape = False
-    if not jobs_db:
-        needs_scrape = True
-    elif last_scraped_str:
-        try:
-            last_scraped = datetime.fromisoformat(last_scraped_str)
-            if (datetime.now() - last_scraped).total_seconds() > 3600:
-                needs_scrape = True
-        except Exception:
-            needs_scrape = True
-    else:
-        needs_scrape = True
-        
-    if needs_scrape:
-        print("Cache expired or empty. Scraping live jobs...")
+    jobs = db.get_all_jobs()
+    if not jobs:
+        print("Database is empty. Scraping live jobs...")
         jobs_list = await generate_jobs_list(current_profile)
-        
-        jobs_list_dict = {j.id: j for j in jobs_list}
-        for db_job_dict in jobs_db:
-            jid = db_job_dict.get("id")
-            if not jid:
-                continue
-            if jid in jobs_list_dict:
-                jobs_list_dict[jid].status = db_job_dict.get("status", "Matched")
-                jobs_list_dict[jid].tailored_resume = db_job_dict.get("tailored_resume", "")
-                if "posted_at" in db_job_dict:
-                    jobs_list_dict[jid].posted_at = db_job_dict["posted_at"]
-            else:
-                try:
-                    extra_job = Job(**db_job_dict)
-                    jobs_list_dict[jid] = extra_job
-                except Exception as e:
-                    print(f"Error parsing job from db: {e}")
-                    
-        final_list = list(jobs_list_dict.values())
-        final_list.sort(key=lambda x: x.match_score, reverse=True)
-        
-        # Save cache
-        jobs_db = [j.dict() for j in final_list]
-        save_json_file(JOBS_STORE_FILE, jobs_db)
-        save_json_file("cache_metadata.json", {"last_scraped": datetime.now().isoformat()})
-        return final_list
-    else:
-        parsed_list = []
-        for db_job_dict in jobs_db:
-            try:
-                parsed_list.append(Job(**db_job_dict))
-            except Exception as e:
-                print(f"Error parsing job from db: {e}")
-        parsed_list.sort(key=lambda x: x.match_score, reverse=True)
-        return parsed_list
+        for job in jobs_list:
+            db.save_job(job)
+        jobs = db.get_all_jobs()
+    return jobs
 
 @app.get("/api/jobs")
 async def get_jobs():
@@ -260,10 +281,7 @@ async def scrape_more_jobs_endpoint(payload: dict = None):
     keywords = payload.get("keywords")
     location = payload.get("location")
 
-    global jobs_db
-    jobs_db = load_json_file(JOBS_STORE_FILE, [])
-    
-    existing_jobs = [{"title": j.get("title", ""), "company": j.get("company", "")} for j in jobs_db]
+    existing_jobs = [{"title": j.title, "company": j.company} for j in db.get_all_jobs()]
     
     from job_scraper import scrape_more_jobs
     
@@ -275,12 +293,8 @@ async def scrape_more_jobs_endpoint(payload: dict = None):
     )
     
     for job in new_jobs:
-        if not any(j["id"] == job.id for j in jobs_db):
-            jobs_db.append(job.dict())
-            
-    save_json_file(JOBS_STORE_FILE, jobs_db)
-    save_json_file("cache_metadata.json", {"last_scraped": datetime.now().isoformat()})
-    
+        db.save_job(job)
+        
     return await get_all_jobs()
 
 @app.post("/api/jobs/update-status")
@@ -291,29 +305,20 @@ async def update_job_status(data: dict):
     if not job_id or not status:
         raise HTTPException(status_code=400, detail="Missing job_id or status")
         
-    global jobs_db
-    jobs_db = load_json_file(JOBS_STORE_FILE, [])
+    updated = db.update_job_status(job_id, status)
     
-    found = False
-    for job in jobs_db:
-        if job["id"] == job_id:
-            job["status"] = status
-            found = True
-            break
-            
-    if not found:
+    if not updated:
         jobs_list = await generate_jobs_list(current_profile)
         for job in jobs_list:
             if job.id == job_id:
                 job.status = status
-                jobs_db.append(job.dict())
-                found = True
+                db.save_job(job)
+                updated = True
                 break
                 
-    if not found:
+    if not updated:
         raise HTTPException(status_code=404, detail="Job not found")
         
-    save_json_file(JOBS_STORE_FILE, jobs_db)
     return {"status": "success", "job_id": job_id, "new_status": status}
 
 @app.post("/api/jobs/apply")
@@ -323,18 +328,12 @@ async def apply_job(data: dict):
     if not job_id:
         raise HTTPException(status_code=400, detail="Missing job_id")
         
-    jobs_list = await generate_jobs_list(current_profile)
-    target_job = None
-    for j in jobs_list:
-        if j.id == job_id:
-            target_job = j
-            break
-            
+    target_job = db.get_job(job_id)
     if not target_job:
-        local_db = load_json_file(JOBS_STORE_FILE, [])
-        for j_dict in local_db:
-            if j_dict["id"] == job_id:
-                target_job = Job(**j_dict)
+        jobs_list = await generate_jobs_list(current_profile)
+        for j in jobs_list:
+            if j.id == job_id:
+                target_job = j
                 break
                 
     if not target_job:
@@ -359,7 +358,7 @@ async def apply_job(data: dict):
     current_settings = AISettings(**settings_data)
     model_provider = current_settings.active_provider or "local"
     automation_mode = current_settings.automation_mode or "Assisted Apply"
-
+ 
     # 3. Tailor the selected resume version
     score, tailored_resume = await process_resume_tailoring(
         base_resume_text,
@@ -376,9 +375,8 @@ async def apply_job(data: dict):
     # Determine the status to save (Assisted/Quick prepare maps to "Prepared")
     new_status = "Prepared" if automation_mode != "Disabled" else "Applied"
     
-    # 5. Log and save to Application Queue json database
-    queue = load_application_queue()
-    queue["applications"][job_id] = {
+    # 5. Log and save to SQLite applications and audit_logs tables
+    app_record = {
         "job_id": job_id,
         "company": target_job.company,
         "title": target_job.title,
@@ -389,6 +387,7 @@ async def apply_job(data: dict):
         "platform": payload["platform"],
         "support": payload["automation_support"]
     }
+    db.save_application(app_record)
     
     log_event = {
         "timestamp": datetime.now().isoformat(),
@@ -398,24 +397,10 @@ async def apply_job(data: dict):
         "action": f"Application prepared via {automation_mode} using {selected_version_key} resume version",
         "mode": automation_mode
     }
-    queue["audit_logs"].append(log_event)
-    save_application_queue(queue)
+    db.add_audit_log(log_event)
     
-    # Update in jobs store
-    global jobs_db
-    jobs_db = load_json_file(JOBS_STORE_FILE, [])
-    found = False
-    for j in jobs_db:
-        if j["id"] == job_id:
-            j["status"] = new_status
-            j["tailored_resume"] = tailored_resume
-            found = True
-            break
-    if not found:
-        target_job.status = new_status
-        target_job.tailored_resume = tailored_resume
-        jobs_db.append(target_job.dict())
-    save_json_file(JOBS_STORE_FILE, jobs_db)
+    # Update status and tailored resume in jobs store
+    db.update_tailored_resume(job_id, new_status, tailored_resume)
     
     return {
         "status": "success",
@@ -1002,8 +987,8 @@ async def update_queue(data: dict):
 
 @app.get("/api/automation/metrics")
 async def get_metrics():
-    queue = load_application_queue()
-    apps = queue.get("applications", {})
+    app_data = db.get_applications()
+    apps = app_data.get("applications", {})
     
     total_submitted = sum(1 for app in apps.values() if app.get("status") in ["Applied", "Interviewing", "Offered", "Rejected"])
     total_interviews = sum(1 for app in apps.values() if app.get("status") in ["Interviewing", "Offered"])
@@ -1058,7 +1043,7 @@ async def get_metrics():
         "offer_rate": offer_rate,
         "best_source": best_source,
         "best_resume": best_resume,
-        "audit_logs": queue.get("audit_logs", [])[-20:] # Last 20 logs
+        "audit_logs": app_data.get("audit_logs", [])[-20:] # Last 20 logs
     }
 
 @app.get("/api/validation/report")
@@ -1109,7 +1094,8 @@ async def reset_all_data():
         "filter_usage_stats.json",
         "validation_stats.json",
         "validation_history.json",
-        "cache_metadata.json"
+        "cache_metadata.json",
+        os.path.join(os.path.dirname(__file__), "airohunt.db")
     ]
     for filename in files_to_delete:
         if os.path.exists(filename):
