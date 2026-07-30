@@ -40,14 +40,13 @@ class MultilingualEngine:
         return best_lang if scores[best_lang] > 0 else "en"
 
     def analyze_multilingual_scams(self, text: str, lang: str = None) -> Tuple[bool, List[str]]:
-        detected_lang = lang or self.detect_language(text)
         rejections = []
-        patterns = MULTILINGUAL_SCAM_PATTERNS.get(detected_lang, [])
-
         t_lower = text.lower()
-        for pat in patterns:
-            if re.search(pat, t_lower):
-                rejections.append(f"Multilingual Scam Indicator ({detected_lang.upper()}): {pat}")
+
+        for l_code, patterns in MULTILINGUAL_SCAM_PATTERNS.items():
+            for pat in patterns:
+                if re.search(pat, t_lower):
+                    rejections.append(f"Multilingual Scam Indicator ({l_code.upper()}): {pat}")
 
         return (len(rejections) > 0, rejections)
 
