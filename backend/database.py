@@ -3,7 +3,7 @@ import json
 import os
 from typing import List, Dict, Any, Optional
 from models import Job
-from datetime import datetime
+from datetime import datetime, timezone
 
 DB_FILE = os.path.join(os.path.dirname(__file__), "airohunt.db")
 
@@ -86,19 +86,35 @@ class AirohuntDatabase:
                 )
             """)
 
-            # 4. Audit Logs Table
+            # 5. Database Performance Indices
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_company_title ON jobs(company, title)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_tier_score ON jobs(validation_tier, match_score)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_posted ON jobs(posted_at)")
+
+            # 6. Job Fingerprints Table (Multi-Stage Deduplication)
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS audit_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT,
-                    job_id TEXT,
-                    company TEXT,
-                    title TEXT,
-                    action TEXT,
-                    mode TEXT
+                CREATE TABLE IF NOT EXISTS job_fingerprints (
+                    job_id TEXT PRIMARY KEY,
+                    canonical_url_hash TEXT,
+                    title_company_hash TEXT,
+                    minhash_signature TEXT,
+                    created_at TEXT
                 )
             """)
-            
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_fingerprints_url_hash ON job_fingerprints(canonical_url_hash)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_fingerprints_tc_hash ON job_fingerprints(title_company_hash)")
+
+            # 7. Job Features & Embeddings Metadata Table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS job_features (
+                    job_id TEXT PRIMARY KEY,
+                    tfidf_vector TEXT, -- JSON array / sparse map
+                    normalized_skills TEXT, -- JSON list
+                    extracted_metadata TEXT, -- JSON dict
+                    updated_at TEXT
+                )
+            """)
+
             conn.commit()
 
     # --- JOB OPERATIONS ---
@@ -390,3 +406,105 @@ class AirohuntDatabase:
                 log_entry["mode"]
             ))
             conn.commit()
+
+    # --- DEDUPLICATION FINGERPRINT & FEATURE HELPERS ---
+
+    def save_job_fingerprint(self, job_id: str, canonical_url_hash: str, title_company_hash: str, minhash_signature: List[int]):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            sig_json = json.dumps(minhash_signature) if isinstance(minhash_signature, list) else str(minhash_signature)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cursor.execute("""
+                INSERT INTO job_fingerprints (job_id, canonical_url_hash, title_company_hash, minhash_signature, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET
+                    canonical_url_hash=excluded.canonical_url_hash,
+                    title_company_hash=excluded.title_company_hash,
+                    minhash_signature=excluded.minhash_signature
+            """, (job_id, canonical_url_hash, title_company_hash, sig_json, now_iso))
+            conn.commit()
+
+    def get_job_fingerprints(self) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT job_id, canonical_url_hash, title_company_hash, minhash_signature FROM job_fingerprints")
+            results = []
+            for row in cursor.fetchall():
+                sig = json.loads(row["minhash_signature"]) if row["minhash_signature"] else []
+                results.append({
+                    "job_id": row["job_id"],
+                    "canonical_url_hash": row["canonical_url_hash"],
+                    "title_company_hash": row["title_company_hash"],
+                    "minhash_signature": sig
+                })
+            return results
+
+    def save_job_features(self, job_id: str, tfidf_vector: Dict[str, float], normalized_skills: List[str], extracted_metadata: Dict[str, Any]):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cursor.execute("""
+                INSERT INTO job_features (job_id, tfidf_vector, normalized_skills, extracted_metadata, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET
+                    tfidf_vector=excluded.tfidf_vector,
+                    normalized_skills=excluded.normalized_skills,
+                    extracted_metadata=excluded.extracted_metadata,
+                    updated_at=excluded.updated_at
+            """, (
+                job_id,
+                json.dumps(tfidf_vector),
+                json.dumps(normalized_skills),
+                json.dumps(extracted_metadata),
+                now_iso
+            ))
+            conn.commit()
+
+    def bulk_upsert_jobs(self, jobs: List[Job]):
+        """Efficiently saves multiple Job objects in a single database transaction."""
+        if not jobs:
+            return
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            for job in jobs:
+                skills_json = json.dumps(job.skills_required) if isinstance(job.skills_required, list) else job.skills_required
+                pros_json = json.dumps(job.recommendation_pros) if isinstance(job.recommendation_pros, list) else job.recommendation_pros
+                cons_json = json.dumps(job.recommendation_cons) if isinstance(job.recommendation_cons, list) else job.recommendation_cons
+                tech_stack_json = json.dumps(job.tech_stack) if isinstance(job.tech_stack, list) else job.tech_stack
+                hiring_signals_json = json.dumps(job.hiring_signals) if isinstance(job.hiring_signals, list) else job.hiring_signals
+                val_reasons_json = json.dumps(job.validation_reasons) if isinstance(job.validation_reasons, list) else job.validation_reasons
+                val_warns_json = json.dumps(job.validation_warnings) if isinstance(job.validation_warnings, list) else job.validation_warnings
+                rej_reasons_json = json.dumps(job.rejection_reasons) if isinstance(job.rejection_reasons, list) else job.rejection_reasons
+
+                cursor.execute("""
+                    INSERT INTO jobs (
+                        id, title, company, location, salary, description, skills_required, url,
+                        is_scam, scam_reason, match_score, status, tailored_resume, posted_at,
+                        scam_risk_score, tech_match_score, pref_match_score, trust_score, opportunity_score,
+                        recommendation_pros, recommendation_cons, ai_recommendation, evaluation_mode,
+                        company_summary, tech_stack, hiring_signals, trust_rating, validation_tier,
+                        validation_score, validation_confidence, validation_reasons, validation_warnings, rejection_reasons
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?
+                    )
+                    ON CONFLICT(id) DO UPDATE SET
+                        title=excluded.title, company=excluded.company, location=excluded.location,
+                        salary=excluded.salary, description=excluded.description, skills_required=excluded.skills_required,
+                        url=excluded.url, is_scam=excluded.is_scam, scam_reason=excluded.scam_reason,
+                        match_score=excluded.match_score, status=excluded.status, validation_tier=excluded.validation_tier,
+                        validation_score=excluded.validation_score, validation_confidence=excluded.validation_confidence
+                """, (
+                    job.id, job.title, job.company, job.location, job.salary, job.description, skills_json, job.url,
+                    1 if job.is_scam else 0, job.scam_reason, job.match_score, job.status, job.tailored_resume, job.posted_at,
+                    job.scam_risk_score, job.tech_match_score, job.pref_match_score, job.trust_score, job.opportunity_score,
+                    pros_json, cons_json, job.ai_recommendation, job.evaluation_mode,
+                    job.company_summary, tech_stack_json, hiring_signals_json, job.trust_rating, job.validation_tier,
+                    job.validation_score, job.validation_confidence, val_reasons_json, val_warns_json, rej_reasons_json
+                ))
+            conn.commit()
+

@@ -10,6 +10,7 @@ from typing import List, Tuple, Dict, Any
 from models import Job, UserProfile
 from utils import load_json_file, save_json_file
 from geo_utils import get_state_from_city
+from ai.deduplication_engine import deduplicate_jobs_multi_stage
 
 # Import Database cache manager
 from database import AirohuntDatabase
@@ -643,42 +644,11 @@ def is_similar_title(t1: str, t2: str) -> bool:
 
 def deduplicate_jobs(jobs: List[Job]) -> Tuple[List[Job], int]:
     """
-    Groups jobs by company and similar titles using fuzzy title matching, retaining the highest quality source.
+    Multi-stage high-throughput deduplication engine.
+    Uses canonical URL hashing, MinHash text similarity, and token set fuzzy title matching.
     Returns (deduplicated_jobs, duplicates_removed_count).
     """
-    by_company: Dict[str, List[Job]] = {}
-    for job in jobs:
-        comp = job.company.lower().strip()
-        if comp not in by_company:
-            by_company[comp] = []
-        by_company[comp].append(job)
-
-    deduplicated = []
-    removed_count = 0
-
-    for company, comp_jobs in by_company.items():
-        groups: List[List[Job]] = []
-        for job in comp_jobs:
-            matched_group = None
-            for group in groups:
-                if is_similar_title(group[0].title, job.title):
-                    matched_group = group
-                    break
-            if matched_group is not None:
-                matched_group.append(job)
-            else:
-                groups.append([job])
-        
-        for group in groups:
-            if len(group) == 1:
-                deduplicated.append(group[0])
-            else:
-                # Sort by source quality rank descending, then match score descending
-                group.sort(key=lambda x: (rank_duplicate_sources(x), x.match_score), reverse=True)
-                deduplicated.append(group[0])
-                removed_count += len(group) - 1
-
-    return deduplicated, removed_count
+    return deduplicate_jobs_multi_stage(jobs)
 
 
 def update_validation_stats(all_collected: List[Job], active_jobs: List[Job], duplicates_removed: int):
