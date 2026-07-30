@@ -11,6 +11,7 @@ from models import Job, UserProfile
 from utils import load_json_file, save_json_file
 from geo_utils import get_state_from_city
 from ai.deduplication_engine import deduplicate_jobs_multi_stage
+from multilingual_engine import global_multilingual_engine
 
 # Import Database cache manager
 from database import AirohuntDatabase
@@ -212,6 +213,11 @@ class StrictJobValidationEngine:
                 pattern = r'\b' + re.escape(kw) + r'\b'
                 if re.search(pattern, title_lower):
                     return True, f"Senior Level Role ({kw.title()})"
+
+        # 7. Multilingual Scam Checks
+        is_multi_scam, scam_reasons = global_multilingual_engine.analyze_multilingual_scams(f"{job.title} {job.description}")
+        if is_multi_scam:
+            return True, scam_reasons[0]
 
         return False, ""
 
