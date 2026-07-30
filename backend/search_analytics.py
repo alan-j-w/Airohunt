@@ -1,7 +1,5 @@
-import os
-import json
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any
+from datetime import datetime, timezone
 from utils import load_json_file, save_json_file
 
 STATS_FILE = "filter_usage_stats.json"
@@ -22,10 +20,13 @@ class SearchAnalyticsTracker:
         kw_clean = keyword.lower().strip() if keyword else "all"
         loc_clean = location.lower().strip() if location else "all"
 
+        data.setdefault("keywords", {})
+        data.setdefault("locations", {})
+
         data["total_searches"] = data.get("total_searches", 0) + 1
-        data["keywords"][kw_clean] = data.get("keywords", {}).get(kw_clean, 0) + 1
-        data["locations"][loc_clean] = data.get("locations", {}).get(loc_clean, 0) + 1
-        data["last_searched"] = datetime.utcnow().isoformat()
+        data["keywords"][kw_clean] = data["keywords"].get(kw_clean, 0) + 1
+        data["locations"][loc_clean] = data["locations"].get(loc_clean, 0) + 1
+        data["last_searched"] = datetime.now(timezone.utc).isoformat()
 
         save_json_file(self.stats_file, data)
 
