@@ -5,30 +5,12 @@ import httpx
 import asyncio
 from typing import List, Dict, Any
 from job_sources.base_provider import BaseJobProvider
+from job_sources.ats_directory_manager import global_ats_directory
 
-GREENHOUSE_BOARDS = [
-    "gitlab", "figma", "vercel", "hashicorp", "stripe", "reddit", "openai", "scaleai",
-    "cloudera", "datadog", "doordash", "dropbox", "elastic", "github", "hubspot",
-    "instacart", "launchdarkly", "lyft", "mongodb", "netflix", "okta",
-    "pinterest", "plaid", "postman", "roblox", "segment", "slack", "snowflake",
-    "squarespace", "twilio", "unity", "zoom"
-]
-
-LEVER_BOARDS = [
-    "lever", "hotjar", "vercel", "buffer", "mural", "figma", "asana", "box",
-    "deliveryhero", "docker", "framer", "medium", "miro", "palantir", "quizlet",
-    "revolut", "shopify", "snyk", "stackoverflow", "udacity", "wealthfront", "yelp"
-]
-
-ASHBY_BOARDS = [
-    "linear", "clerk", "replicate", "perplexity", "devcycle", "humeai", "sandbar",
-    "retool", "calcom", "chronosphere", "dopt", "gatus"
-]
-
-WORKABLE_BOARDS = [
-    "huggingface", "cypress", "taxfix", "toptal", "deliveroo", "skyscanner", "contentful", "moderne",
-    "charliehr", "careem", "starlingbank"
-]
+GREENHOUSE_BOARDS = global_ats_directory.greenhouse
+LEVER_BOARDS = global_ats_directory.lever
+ASHBY_BOARDS = global_ats_directory.ashby
+WORKABLE_BOARDS = global_ats_directory.workable
 
 KERALA_STARTUPS_POOL = []
 

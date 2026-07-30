@@ -12,6 +12,10 @@ from job_sources.adzuna_provider import AdzunaJobProvider
 from job_sources.jooble_provider import JoobleJobProvider
 from job_sources.manual_import_provider import ManualImportJobProvider
 from job_sources.company_careers_provider import CompanyCareersJobProvider
+from job_sources.workday_provider import WorkdayJobProvider
+from job_sources.smartrecruiters_provider import SmartRecruitersJobProvider
+from job_sources.breezy_provider import BreezyJobProvider
+from job_sources.teamtailor_provider import TeamtailorJobProvider
 from ai.job_discovery_agent import evaluate_job_listing
 from ai.ai_preference_parser import parse_user_instructions
 from ai.resume_version_manager import ResumeVersionManager
@@ -221,8 +225,8 @@ async def hydrate_job_description(url: str, current_snippet: str) -> str:
 
 
 def get_active_providers() -> List[str]:
-    # Default active sources
-    active = ["company_careers", "adzuna", "jooble"]
+    # Default active sources including enterprise ATS providers
+    active = ["company_careers", "workday", "smartrecruiters", "breezy", "teamtailor", "adzuna", "jooble"]
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
@@ -400,6 +404,14 @@ async def generate_jobs_list(profile: UserProfile, pipeline_nodes: List[dict] = 
         providers.append(ManualImportJobProvider())
     if "company_careers" in active_sources:
         providers.append(CompanyCareersJobProvider())
+    if "workday" in active_sources or "company_careers" in active_sources:
+        providers.append(WorkdayJobProvider())
+    if "smartrecruiters" in active_sources or "company_careers" in active_sources:
+        providers.append(SmartRecruitersJobProvider())
+    if "breezy" in active_sources or "company_careers" in active_sources:
+        providers.append(BreezyJobProvider())
+    if "teamtailor" in active_sources or "company_careers" in active_sources:
+        providers.append(TeamtailorJobProvider())
         
     # Expand keywords using synonym mapping
     expanded_keywords = expand_search_query(keywords)
