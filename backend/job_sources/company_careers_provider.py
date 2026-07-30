@@ -6,6 +6,7 @@ import asyncio
 from typing import List, Dict, Any
 from job_sources.base_provider import BaseJobProvider
 from job_sources.ats_directory_manager import global_ats_directory
+from stealth_http_client import global_stealth_client
 
 GREENHOUSE_BOARDS = global_ats_directory.greenhouse
 LEVER_BOARDS = global_ats_directory.lever

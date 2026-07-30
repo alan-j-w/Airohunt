@@ -1,8 +1,8 @@
-import httpx
 import asyncio
 from typing import List, Dict, Any
 from job_sources.base_provider import BaseJobProvider
 from job_sources.ats_directory_manager import WORKDAY_TENANTS
+from stealth_http_client import global_stealth_client
 
 class WorkdayJobProvider(BaseJobProvider):
     async def fetch_jobs(self, keywords: str, location: str, limit: int = 15) -> List[Dict[str, Any]]:
@@ -12,7 +12,7 @@ class WorkdayJobProvider(BaseJobProvider):
 
         sem = asyncio.Semaphore(10)
 
-        async def fetch_tenant(client: httpx.AsyncClient, tenant_info: Dict[str, str]):
+        async def fetch_tenant(tenant_info: Dict[str, str]):
             async with sem:
                 company = tenant_info["company"]
                 tenant = tenant_info["tenant"]
@@ -27,11 +27,7 @@ class WorkdayJobProvider(BaseJobProvider):
                 }
 
                 try:
-                    resp = await client.post(url, json=payload, headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                        "Accept": "application/json"
-                    }, timeout=6.0)
-
+                    resp = await global_stealth_client.post(url, json=payload, headers={"Accept": "application/json"}, timeout=6.0)
                     if resp.status_code == 200:
                         data = resp.json()
                         postings = data.get("jobPostings", [])
@@ -59,12 +55,11 @@ class WorkdayJobProvider(BaseJobProvider):
                 return []
 
         try:
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                tasks = [fetch_tenant(client, t) for t in WORKDAY_TENANTS]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for res in results:
-                    if isinstance(res, list):
-                        jobs_out.extend(res)
+            tasks = [fetch_tenant(t) for t in WORKDAY_TENANTS]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for res in results:
+                if isinstance(res, list):
+                    jobs_out.extend(res)
         except Exception as e:
             print(f"Workday fetch error: {e}")
 
