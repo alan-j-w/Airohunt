@@ -22,6 +22,7 @@ from ai.resume_version_manager import ResumeVersionManager
 from ai.provider_manager import ProviderManager
 from ai.strict_job_validator import StrictJobValidationEngine, deduplicate_jobs, update_validation_stats
 from constants import TECH_MATCH_WEIGHT, PREFERENCE_MATCH_WEIGHT, TRUST_SCORE_WEIGHT, OPPORTUNITY_SCORE_WEIGHT
+from currency_engine import global_currency_engine
 import shutil
 from utils import load_json_file, save_json_file
 
@@ -240,58 +241,24 @@ def get_active_providers() -> List[str]:
     return active
 
 def check_salary_filter(salary_str: str, min_salary: float, currency: str, policy: str) -> tuple[bool, str]:
-    sal_lower = salary_str.lower()
+    parsed = global_currency_engine.parse_salary_string(salary_str)
     
     # 1. Handle missing/undisclosed salary
-    if "not specified" in sal_lower or not salary_str.strip():
+    if not parsed["is_specified"]:
         if policy == "Hide":
             return False, ""
         elif policy == "Warn":
             return True, "Salary undisclosed"
         return True, ""
-        
-    # 2. Parse numerical value
-    sal_clean = re.sub(r'[$,₹,]', '', sal_lower).strip()
-    numbers = re.findall(r'\d+(?:\.\d+)?', sal_clean)
-    if not numbers:
-        if policy == "Hide":
-            return False, ""
-        elif policy == "Warn":
-            return True, "Salary undisclosed"
-        return True, ""
-        
-    num = float(numbers[0])
-    is_lpa = "lpa" in sal_lower or "lakh" in sal_lower or "l" in sal_lower or "₹" in salary_str
-    is_monthly = "month" in sal_lower or "/mo" in sal_lower or "pm" in sal_lower
-    
-    job_lpa = 0.0
-    job_usd = 0.0
-    
-    if is_lpa:
-        job_lpa = num
-        job_usd = (num * 100000.0) / 83.0
-    elif is_monthly:
-        if num < 100000:
-            job_lpa = (num * 12) / 100000.0
-            job_usd = (num * 12) / 83.0
-        else:
-            job_usd = num * 12
-            job_lpa = (job_usd * 83.0) / 100000.0
-    else:
-        if num < 100.0:
-            job_lpa = num
-            job_usd = (num * 100000.0) / 83.0
-        else:
-            job_usd = num
-            job_lpa = (num * 83.0) / 100000.0
-            
+
+    # 2. Check threshold against normalized currency
     if currency == "INR_LPA":
-        if job_lpa < min_salary:
+        if parsed["normalized_lpa"] < min_salary:
             return False, ""
     else:
-        if job_usd < min_salary:
+        if parsed["min_usd"] < min_salary and parsed["max_usd"] < min_salary:
             return False, ""
-            
+
     return True, ""
 
 def _load_pairwise_stats() -> dict:
